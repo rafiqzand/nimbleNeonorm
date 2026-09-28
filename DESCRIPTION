@@ -1,11 +1,50 @@
 Package: nimbleNeonorm
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
-Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+Title: Neo-Normal Distributions for 'NIMBLE'
+Version: 0.1.1
+Authors@R: c(
+    person(
+      "Achmad Syahrul", "Choir",
+      role = c("aut", "cre"),
+      email = "madsyair@stis.ac.id",
+      comment = c(ORCID = "0000-0001-7088-0646")
+    ),
+    person(
+      "La Ode Rafiq Zandik", "Badarun",
+      role = "aut"
+    )
+  )
+Description: Provides two flexible neo-normal probability distributions,
+    MSNBurr and MSNBurr-IIa, with integration for the 'NIMBLE' Bayesian
+    inference framework. Both distributions extend the normal distribution
+    with additional shape parameters controlling skewness. The package
+    provides density, distribution, quantile, and random generation
+    functions for use in 'NIMBLE' models, with derivative support for
+    Hamiltonian Monte Carlo (HMC) and No-U-Turn Sampler (NUTS) methods.
+License: MIT + file LICENSE
 Config/roxygen2/version: 8.1.0
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
+Depends:
+    R (>= 4.0.0),
+    nimble (>= 1.0.0)
+Imports:
+    coda,
+    methods,
+    stats,
+    utils
+Suggests:
+    nimbleHMC,
+    Rmpfr,
+    testthat (>= 3.1.5),
+    withr
+Config/testthat/edition: 3
+Collate: 
+    'mcmc.R'
+    'utils-numeric.R'
+    'msnburr.R'
+    'msnburr2a.R'
+    'nimbleNeonorm-package.R'
+    'registration.R'
+    'zzz.R'
+URL: https://github.com/rafiqzand/nimbleNeonorm
+BugReports: https://github.com/rafiqzand/nimbleNeonorm/issues
