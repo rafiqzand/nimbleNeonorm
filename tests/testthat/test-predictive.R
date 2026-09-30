@@ -1,4 +1,3 @@
-# [REVISI-06] FILE TEST BARU untuk R/predictive.R.
 
 # ---- prior_predict_neonorm (uncompiled, no C++) -----------------------------
 

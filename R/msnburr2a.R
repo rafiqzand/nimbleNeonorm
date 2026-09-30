@@ -5,10 +5,6 @@
 #' @include utils-numeric.R
 NULL
 
-# [REVISI-01] Dokumentasi: kalimat "Invalid parameters ... raise an error"
-# [REVISI-01] diganti karena sekarang parameter tidak valid menghasilkan NaN.
-# [REVISI-05] Dokumentasi: ditambah paragraf sifat kemiringan dan blok
-# [REVISI-05] @references (Ramadani dkk. 2025, Choir 2020, Maechler 2012).
 #' The MSNBurr-IIa distribution
 #'
 #' Density, distribution function, quantile function and random generation
@@ -105,7 +101,6 @@ dmsnburr2a <- nimble::nimbleFunction(
                  log = integer(0, default = 0)) {
     returnType(double(0))
 
-    # [REVISI-01] nimStop() diganti return(NaN); ditambah cek NaN.
     # Invalid inputs give NaN, as R's and NIMBLE's built-in densities do.
     # x != x is TRUE only for NaN in compiled code. is.na() cannot be used
     # here: NIMBLE's automatic differentiation (buildDerivs) does not
@@ -150,9 +145,6 @@ pmsnburr2a <- nimble::nimbleFunction(
                  log.p = integer(0, default = 0)) {
     returnType(double(0))
 
-    # [REVISI-01] nimStop() diganti return(NaN). Cek NaN pada q dan parameter
-    # [REVISI-01] sebelumnya TIDAK ADA di fungsi ini (beda dengan pmsnburr);
-    # [REVISI-01] sekarang disamakan.
     # x != x is TRUE only for NaN in compiled code. is.na() cannot be used
     # here: NIMBLE's automatic differentiation (buildDerivs) does not
     # support it for double arguments.
@@ -212,8 +204,6 @@ qmsnburr2a <- nimble::nimbleFunction(
                  log.p = integer(0, default = 0)) {
     returnType(double(0))
 
-    # [REVISI-01] nimStop() diganti return(NaN), termasuk untuk p di luar
-    # [REVISI-01] [0, 1] dan log(p) > 0.
     # x != x is TRUE only for NaN in compiled code. is.na() cannot be used
     # here: NIMBLE's automatic differentiation (buildDerivs) does not
     # support it for double arguments.
@@ -273,7 +263,6 @@ rmsnburr2a <- nimble::nimbleFunction(
     # NIMBLE simulation functions return one draw per call.
     if (n != 1) nimStop("rmsnburr2a only supports n = 1")
 
-    # [REVISI-01] Parameter tidak valid: nimStop() diganti return(NaN).
     if (is.na(mu) | is.na(sigma) | is.na(alpha)) return(NaN)
     if (abs(mu) == Inf | sigma == Inf | alpha == Inf) return(NaN)
     if (sigma <= 0 | alpha <= 0) return(NaN)

@@ -1,6 +1,3 @@
-# [REVISI-05] Dokumentasi tingkat paket: ditambah ringkasan alur kerja
-# [REVISI-05] (fungsi per langkah Bayesian workflow) dan @references inti.
-# [REVISI-05] Bagian kode (import & globalVariables) TIDAK berubah.
 #' nimbleNeonorm: Neo-Normal Distributions for 'NIMBLE'
 #'
 #' Provides the MSNBurr and MSNBurr-IIa neo-normal distributions as

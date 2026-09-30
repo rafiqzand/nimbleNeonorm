@@ -1,6 +1,3 @@
-# [REVISI-06] FILE BARU. Prior dan posterior predictive simulation, dua
-# [REVISI-06] langkah Bayesian workflow (Gelman dkk., 2020; Gabry dkk., 2019)
-# [REVISI-06] yang sebelumnya belum difasilitasi paket ini.
 
 # Prior and posterior predictive simulation for NIMBLE models, two checks of
 # the Bayesian workflow (Gelman et al., 2020; Gabry et al., 2019).

@@ -8,9 +8,6 @@
 # found and compilation fails with "Problem with type of arg2 in
 # sizeBinaryCwise".
 #
-# [REVISI-05] File ini: KODE TIDAK BERUBAH. Yang berubah hanya dokumentasi
-# [REVISI-05] roxygen (@references ditambah/dilengkapi) supaya setiap
-# [REVISI-05] keputusan numerik punya rujukan.
 
 #' @importFrom nimble nimbleFunction nimStop
 NULL
@@ -18,7 +15,6 @@ NULL
 
 # ---- log1pexp_nimble --------------------------------------------------------
 
-# [REVISI-05] Ditambah rujukan Goldberg (1991) untuk overflow/underflow.
 #' Numerically stable `log(1 + exp(x))`
 #'
 #' Evaluates \eqn{\log(1 + e^x)} without overflow for large `x` and without
@@ -69,8 +65,6 @@ log1pexp_nimble <- nimble::nimbleFunction(
 
 # ---- expm1_nimble -----------------------------------------------------------
 
-# [REVISI-05] Ditambah rujukan Higham (2002) + Maechler (2012, Pers. 2) dan
-# [REVISI-05] justifikasi angka 0.7: sisa Taylor < epsilon mesin (dihitung).
 #' Numerically stable `exp(x) - 1`
 #'
 #' Evaluates \eqn{e^x - 1} without the cancellation that `exp(x) - 1`
@@ -113,7 +107,6 @@ expm1_nimble <- nimble::nimbleFunction(
 
 # ---- log1mexp_nimble --------------------------------------------------------
 
-# [REVISI-05] Rujukan dipertegas: Maechler (2012, Pers. 7) + alasan cut-off log 2.
 #' Numerically stable `log(1 - exp(-x))`
 #'
 #' Evaluates \eqn{\log(1 - e^{-x})} for \eqn{x \ge 0} following Mächler
@@ -158,7 +151,6 @@ log1mexp_nimble <- nimble::nimbleFunction(
 
 # ---- log_omega_msnburr ------------------------------------------------------
 
-# [REVISI-05] Ditambah rujukan Choir (2020) untuk definisi omega.
 #' Log of the MSNBurr scaling constant
 #'
 #' Computes \eqn{\log\omega} where

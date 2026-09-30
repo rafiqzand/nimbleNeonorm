@@ -58,8 +58,6 @@ test_that("NUTS-based samplers ask for nimbleHMC when it is missing", {
   )
 })
 
-# [REVISI-04] Test baru: opsi WAIC menyala di konfigurasi, dan opsi global
-# [REVISI-04] NIMBLE dikembalikan seperti semula setelahnya.
 test_that("enableWAIC is passed to the configuration and then restored", {
   local_neonorm("msnburr")
   model <- new_msnburr_model()
@@ -75,7 +73,6 @@ test_that("enableWAIC is passed to the configuration and then restored", {
 
 # ---- prior_inits_neonorm ----------------------------------------------------
 
-# [REVISI-02] Test baru untuk nilai awal tersebar dari prior.
 test_that("prior_inits_neonorm() gives distinct, valid inits per chain", {
   local_neonorm("msnburr")
   model <- new_msnburr_model(y = c(-0.5, 0, 0.8))
@@ -109,8 +106,6 @@ test_that("prior_inits_neonorm() does not change the global RNG state", {
 
 # ---- summarise_neonorm ------------------------------------------------------
 
-# [REVISI-03] Test baru untuk ringkasan posterior + diagnostik konvergensi.
-# [REVISI-03] Tidak butuh kompilasi, jadi cepat dan aman di CRAN.
 test_that("summarise_neonorm() accepts a matrix, a list and an mcmc.list", {
   set.seed(1)
   chains <- lapply(1:4, function(i) cbind(mu = rnorm(400), s = rexp(400)))
@@ -163,13 +158,10 @@ test_that("runmcmc_neonorm() validates its arguments before compiling", {
   expect_error(runmcmc_neonorm(model, niter = 10, thin = 0), "thin")
   expect_error(runmcmc_neonorm(model, niter = 10, nchains = 1.5), "nchains")
   expect_error(runmcmc_neonorm(model, niter = 10, setSeed = "a"), "setSeed")
-  # [REVISI-04] Argumen baru juga divalidasi.
   expect_error(runmcmc_neonorm(model, niter = 10, WAIC = "yes"), "WAIC")
   expect_error(runmcmc_neonorm(model, niter = 10, summary = NA), "summary")
 })
 
-# [REVISI-02] Test baru: nilai awal tidak valid dihentikan dengan pesan jelas
-# [REVISI-02] sebelum kompilasi C++.
 test_that("runmcmc_neonorm() stops early on invalid starting values", {
   local_neonorm("msnburr")
   model <- new_msnburr_model()
@@ -184,8 +176,6 @@ test_that("runmcmc_neonorm() stops early on invalid starting values", {
 
 # ---- runmcmc_neonorm: full runs (compile C++, so slow) ----------------------
 
-# [REVISI-06] Diperbarui: objek hasil kini berkelas neonorm_fit dengan elemen
-# [REVISI-06] tambahan; kolom summary kini memuat Rhat, ESS_bulk, ESS_tail.
 test_that("runmcmc_neonorm() returns a neonorm_fit with draws and summary", {
   skip_on_cran()
   local_neonorm("msnburr")
@@ -234,9 +224,6 @@ test_that("runmcmc_neonorm() discards burn-in before thinning", {
   expect_null(fit$summary)
 })
 
-# [REVISI-08] Test baru: NUTS benar-benar dikompilasi dan dijalankan. Ini
-# [REVISI-08] satu-satunya test yang menguji jalur automatic differentiation
-# [REVISI-08] (buildDerivs = TRUE) dari fungsi d, p, q dan helper numerik.
 test_that("NUTS compiles the derivatives and runs", {
   skip_on_cran()
   skip_if_not_installed("nimbleHMC")
@@ -260,8 +247,6 @@ test_that("NUTS compiles the derivatives and runs", {
   expect_true(all(fit$samples[, "alpha"] > 0))
 })
 
-# [REVISI-02] [REVISI-04] Test baru: beberapa rantai dengan inits dari prior
-# [REVISI-02] (titik awal berbeda-beda) dan WAIC.
 test_that("several chains start from dispersed inits and give WAIC", {
   skip_on_cran()
   local_neonorm("msnburr")

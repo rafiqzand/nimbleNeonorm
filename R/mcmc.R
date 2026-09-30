@@ -37,15 +37,12 @@
   is.numeric(x) && length(x) == 1L && !is.na(x)
 }
 
-# [REVISI-04] Helper baru untuk memvalidasi argumen logis (WAIC, summary).
 .check_flag <- function(x, name) {
   if (!is.logical(x) || length(x) != 1L || is.na(x)) {
     stop("`", name, "` must be TRUE or FALSE.", call. = FALSE)
   }
 }
 
-# [REVISI-08] Helper baru: menambahkan satu sampler NUTS gabungan untuk
-# [REVISI-08] `target`, memakai objek sampler (bukan nama teks).
 # Add one joint NUTS sampler for `target`. The sampler object is passed
 # directly, so nimbleHMC does not need to be attached for NIMBLE to find it.
 .add_nuts <- function(conf, target) {
@@ -62,9 +59,6 @@
   }
 }
 
-# [REVISI-04] Helper baru: menyalakan opsi WAIC NIMBLE sementara lalu
-# [REVISI-04] mengembalikannya. Dipakai lewat nimbleOptions (bukan argumen
-# [REVISI-04] configureMCMC) agar berlaku seragam di semua jalur sampler.
 # Evaluate `code` with NIMBLE's MCMCenableWAIC option temporarily set.
 .with_waic_option <- function(enable, code) {
   old <- nimble::nimbleOptions("MCMCenableWAIC")
@@ -76,8 +70,6 @@
 
 # ---- Configuration ----------------------------------------------------------
 
-# [REVISI-04] Argumen baru `enableWAIC`. [REVISI-05] Ditambah @references
-# [REVISI-05] untuk tiap strategi sampler (alasan ilmiah pemilihannya).
 #' Configure an MCMC for a neonormal NIMBLE model
 #'
 #' Builds an MCMC configuration for a NIMBLE model, optionally replacing the
@@ -173,11 +165,6 @@ configure_mcmc_neonorm <- function(model,
     params <- model$getNodeNames(stochOnly = TRUE, includeData = FALSE)
   }
 
-  # [REVISI-08] NUTS tidak lagi lewat nimbleHMC::configureHMC()/addHMC(),
-  # [REVISI-08] karena keduanya mencari sampler "NUTS" berdasarkan nama di
-  # [REVISI-08] search path, yang gagal jika nimbleHMC hanya dimuat lewat
-  # [REVISI-08] requireNamespace() (tidak di-attach). Objek sampler
-  # [REVISI-08] nimbleHMC::sampler_NUTS diberikan langsung ke addSampler().
   if (sampler %in% c("nuts", "hmc")) {
     .require_nimbleHMC(sampler)
     # NUTS jointly on all continuous stochastic nodes; NIMBLE's defaults for
@@ -238,13 +225,6 @@ configure_mcmc_neonorm <- function(model,
 
 # ---- Initial values ---------------------------------------------------------
 
-# [REVISI-02] FUNGSI BARU. Alasan: sebelumnya, untuk nchains > 1 tanpa
-# [REVISI-02] `inits`, rantai ke-2 dst. melanjutkan dari akhir rantai
-# [REVISI-02] sebelumnya, sehingga titik awal TIDAK tersebar (overdispersed).
-# [REVISI-02] Padahal R-hat mensyaratkan titik awal tersebar (Gelman &
-# [REVISI-02] Rubin, 1992; Vehtari dkk., 2021). Fungsi ini membangkitkan
-# [REVISI-02] nilai awal tiap rantai dari prior dan memastikan log-probabilitas
-# [REVISI-02] model berhingga.
 #' Draw dispersed initial values from the prior
 #'
 #' Simulates one set of initial values per chain from the prior of a NIMBLE
@@ -388,11 +368,6 @@ prior_inits_neonorm <- function(model,
   samples
 }
 
-# [REVISI-03] FUNGSI BARU (diekspor). Menggantikan .summarise_samples() lama
-# [REVISI-03] yang hanya berisi Mean, SD, dan kuantil. Sekarang ditambah
-# [REVISI-03] R-hat rank-normalized, ESS bulk, dan ESS tail dari paket
-# [REVISI-03] `posterior`, sesuai Vehtari dkk. (2021), plus peringatan
-# [REVISI-03] otomatis jika R-hat > 1.01 atau ESS < 100 per rantai.
 #' Posterior summary with convergence diagnostics
 #'
 #' Summarises MCMC draws with the posterior mean, standard deviation and
@@ -515,17 +490,6 @@ summarise_neonorm <- function(samples,
 
 # ---- Running the MCMC -------------------------------------------------------
 
-# [REVISI-02] Perubahan di runmcmc_neonorm():
-# [REVISI-02]  (a) default nchains 1 -> 4 (Vehtari dkk., 2021, menyarankan
-# [REVISI-02]      minimal 4 rantai agar R-hat bermakna);
-# [REVISI-02]  (b) jika inits = NULL dan nchains > 1, nilai awal diambil dari
-# [REVISI-02]      prior_inits_neonorm() (titik awal tersebar);
-# [REVISI-02]  (c) cek log-probabilitas awal berhingga SEBELUM kompilasi,
-# [REVISI-02]      dengan pesan galat yang jelas (menggantikan peran nimStop).
-# [REVISI-03] Ringkasan memakai summarise_neonorm() (R-hat & ESS).
-# [REVISI-04] Argumen baru WAIC; hasil disimpan di fit$WAIC.
-# [REVISI-06] Objek hasil kini berkelas "neonorm_fit" dan menyimpan model
-# [REVISI-06] terkompilasi, agar posterior_predict_neonorm() bisa dipakai.
 #' Compile and run an MCMC for a neonormal NIMBLE model
 #'
 #' Configures (with [configure_mcmc_neonorm()]), builds, compiles and runs an
@@ -737,8 +701,6 @@ runmcmc_neonorm <- function(model,
 }
 
 
-# [REVISI-06] METHOD BARU: print() yang ringkas untuk objek neonorm_fit,
-# [REVISI-06] agar model terkompilasi di dalamnya tidak ikut tercetak.
 #' @export
 print.neonorm_fit <- function(x, digits = 3, ...) {
   s <- x$settings

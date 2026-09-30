@@ -5,11 +5,6 @@
 #' @include utils-numeric.R
 NULL
 
-# [REVISI-01] Dokumentasi: kalimat "Invalid parameters ... raise an error"
-# [REVISI-01] diganti karena sekarang parameter tidak valid menghasilkan NaN.
-# [REVISI-05] Dokumentasi: ditambah paragraf sifat kemiringan (alpha < 1,
-# [REVISI-05] = 1, > 1) dan blok @references (Choir 2020, Iriawan 2012,
-# [REVISI-05] Burr 1942, Maechler 2012, Devroye 1986).
 #' The MSNBurr distribution
 #'
 #' Density, distribution function, quantile function and random generation
@@ -124,10 +119,6 @@ dmsnburr <- nimble::nimbleFunction(
                  log = integer(0, default = 0)) {
     returnType(double(0))
 
-    # [REVISI-01] Sebelumnya: nimStop() untuk parameter tidak valid.
-    # [REVISI-01] Sekarang: mengembalikan NaN seperti dnorm(0, sd = -1) di R
-    # [REVISI-01] dan distribusi bawaan NIMBLE. Ditambah cek NaN (x != x)
-    # [REVISI-01] yang sebelumnya belum ada di fungsi d.
     # Invalid inputs give NaN, as R's and NIMBLE's built-in densities do.
     # x != x is TRUE only for NaN in compiled code. is.na() cannot be used
     # here: NIMBLE's automatic differentiation (buildDerivs) does not
@@ -172,7 +163,6 @@ pmsnburr <- nimble::nimbleFunction(
                  log.p = integer(0, default = 0)) {
     returnType(double(0))
 
-    # [REVISI-01] nimStop() diganti return(NaN); cek NaN digabung satu baris.
     # x != x is TRUE only for NaN in compiled code. is.na() cannot be used
     # here: NIMBLE's automatic differentiation (buildDerivs) does not
     # support it for double arguments.
@@ -232,8 +222,6 @@ qmsnburr <- nimble::nimbleFunction(
                  log.p = integer(0, default = 0)) {
     returnType(double(0))
 
-    # [REVISI-01] nimStop() diganti return(NaN), termasuk untuk p di luar
-    # [REVISI-01] [0, 1] dan log(p) > 0 (sama seperti qnorm(1.1) di R).
     # x != x is TRUE only for NaN in compiled code. is.na() cannot be used
     # here: NIMBLE's automatic differentiation (buildDerivs) does not
     # support it for double arguments.
@@ -295,8 +283,6 @@ rmsnburr <- nimble::nimbleFunction(
     # programming error, so it still stops.
     if (n != 1) nimStop("rmsnburr only supports n = 1")
 
-    # [REVISI-01] Parameter tidak valid: nimStop() diganti return(NaN),
-    # [REVISI-01] sama seperti rnorm(1, sd = -1) di R.
     if (is.na(mu) | is.na(sigma) | is.na(alpha)) return(NaN)
     if (abs(mu) == Inf | sigma == Inf | alpha == Inf) return(NaN)
     if (sigma <= 0 | alpha <= 0) return(NaN)

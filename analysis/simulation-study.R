@@ -1,12 +1,3 @@
-# [REVISI-07] FILE BARU. Skrip studi simulasi untuk Bab V (bukan bagian dari
-# [REVISI-07] paket; folder analysis/ dikecualikan lewat .Rbuildignore).
-# [REVISI-07] Mengukur bias, MSE, cakupan credible interval 95%, R-hat, dan
-# [REVISI-07] ESS pada data bangkitan dengan parameter yang diketahui
-# [REVISI-07] (Cook dkk., 2006; Gelman dkk., 2020, Bagian 4.1;
-# [REVISI-07] Morris dkk., 2019 untuk ukuran kinerja studi simulasi).
-# [REVISI-07] Jalankan dari root repo:  source("analysis/simulation-study.R")
-# [REVISI-07] Mulai dengan N_REP kecil (mis. 5) untuk uji coba, lalu naikkan.
-
 # Simulation study: parameter recovery of the MSNBurr and MSNBurr-IIa models
 # fitted with nimbleNeonorm.
 #
@@ -37,7 +28,7 @@ register_neonorm(verbose = FALSE)
 
 # ---- Settings ---------------------------------------------------------------
 
-N_REP <- 3                       # data sets per scenario
+N_REP <- 50                       # data sets per scenario
 FAMILIES <- c("msnburr", "msnburr2a")
 SAMPLE_SIZES <- c(50, 200)
 ALPHAS <- c(0.5, 1, 3)
