@@ -1,0 +1,283 @@
+---
+title: "A Bayesian workflow with nimbleNeonorm"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{A Bayesian workflow with nimbleNeonorm}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+# The MCMC chunks compile C++ code, so they only run where NOT_CRAN is set
+# (e.g. devtools::check() and devtools::build_vignettes()).
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5,
+  eval = identical(Sys.getenv("NOT_CRAN"), "true")
+)
+```
+
+This vignette fits a skewed location-scale model with the MSNBurr and
+MSNBurr-IIa distributions, following the steps of the Bayesian workflow of
+Gelman et al. (2020): specify the model and its priors, check the priors
+through the data they imply, validate the computation on simulated data
+with known parameters, check convergence, check the fit against the data,
+and compare models.
+
+```{r setup}
+library(nimbleNeonorm)
+register_neonorm(verbose = FALSE)
+```
+
+## 1. The distributions
+
+Both distributions have a location `mu`, a scale `sigma` and a shape
+`alpha` (Choir, 2020; Ramadani et al., 2025). Their mode is `mu`, where the
+density equals that of a normal distribution with standard deviation
+`sigma`. With `alpha = 1` both are symmetric. MSNBurr is skewed to the left
+for `alpha < 1` and to the right for `alpha > 1`; MSNBurr-IIa, its mirror
+image about `mu`, does the opposite.
+
+```{r densities}
+x <- seq(-5, 5, length.out = 401)
+dens <- function(f, a) vapply(x, f, numeric(1), mu = 0, sigma = 1, alpha = a)
+alphas <- c(0.3, 1, 3)
+
+op <- par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
+for (fam in c("MSNBurr", "MSNBurr-IIa")) {
+  f <- if (fam == "MSNBurr") dmsnburr else dmsnburr2a
+  plot(x, dnorm(x), type = "l", lty = 2, ylim = c(0, 0.6),
+       xlab = "x", ylab = "density", main = fam)
+  for (k in seq_along(alphas)) lines(x, dens(f, alphas[k]), col = k + 1)
+  legend("topright", c("normal", paste("alpha =", alphas)),
+         lty = c(2, 1, 1, 1), col = c(1, 2:4), bty = "n", cex = 0.8)
+}
+par(op)
+```
+
+## 2. Model and priors
+
+We model `N` observations as independent draws from MSNBurr-IIa. The priors
+are weakly informative for data on a unit scale, so the data should be
+standardised (or the priors rescaled) before fitting:
+
+* `mu ~ Normal(0, 5)`: the location lies within a few units of zero.
+* `sigma ~ Exponential(1)`: a proper prior on the scale that favours
+  moderate values without excluding large ones (Gelman, 2006).
+* `alpha ~ LogNormal(0, 1)`: its median, 1, is the symmetric case, and it
+  treats skewness in either direction alike on the log scale; 95% of its
+  mass lies between about 0.14 and 7.1.
+
+```{r model}
+model_code <- list(
+  normal = nimbleCode({
+    for (i in 1:N) y[i] ~ dnorm(mu, sd = sigma)
+    mu ~ dnorm(0, sd = 5)
+    sigma ~ dexp(1)
+  }),
+  msnburr = nimbleCode({
+    for (i in 1:N) y[i] ~ dmsnburr(mu, sigma, alpha)
+    mu ~ dnorm(0, sd = 5)
+    sigma ~ dexp(1)
+    alpha ~ dlnorm(0, sdlog = 1)
+  }),
+  msnburr2a = nimbleCode({
+    for (i in 1:N) y[i] ~ dmsnburr2a(mu, sigma, alpha)
+    mu ~ dnorm(0, sd = 5)
+    sigma ~ dexp(1)
+    alpha ~ dlnorm(0, sdlog = 1)
+  })
+)
+
+make_model <- function(family, y) {
+  inits <- list(mu = 0, sigma = 1)
+  if (family != "normal") inits$alpha <- 1
+  nimbleModel(
+    model_code[[family]],
+    constants = list(N = length(y)),
+    data = list(y = y),
+    inits = inits
+  )
+}
+```
+
+## 3. Prior predictive check
+
+Before looking at any data, we simulate parameters from the priors and data
+from the likelihood, and ask whether the implied data are plausible
+(Gelman et al., 2020, Section 2.4; Gabry et al., 2019).
+
+```{r prior-predictive}
+n <- 200
+prior_model <- make_model("msnburr2a", y = rep(0, n))
+prior <- prior_predict_neonorm(prior_model, nsim = 200, seed = 1)
+
+# Spread of each simulated data set
+prior_range <- apply(prior$data, 1, function(d) diff(range(d)))
+summary(prior_range)
+
+hist(prior$data[1:20, ], breaks = 60, main = "Prior predictive data",
+     xlab = "y (20 simulated data sets)")
+```
+
+For standardised data, most simulated data sets should span a few to a few
+tens of units, with only a small fraction far more extreme. If many
+simulated data sets were implausible for the application, the priors would
+need to be tightened before fitting; if they were all nearly identical, the
+priors would be too restrictive.
+
+## 4. Validating the computation on simulated data
+
+To check that the model and the software recover known parameters, we
+simulate data with known values and fit the model to them (Cook et al.,
+2006; Gelman et al., 2020, Section 4.1).
+
+```{r fake-data}
+true <- c(mu = 0, sigma = 1, alpha = 0.3)   # clearly right-skewed
+set.seed(2026)
+y <- replicate(n, rmsnburr2a(1, true[["mu"]], true[["sigma"]],
+                             true[["alpha"]]))
+
+fit <- runmcmc_neonorm(
+  make_model("msnburr2a", y),
+  niter = 4000,
+  nchains = 4,
+  sampler = "slice",
+  WAIC = TRUE
+)
+fit
+```
+
+`runmcmc_neonorm()` starts the four chains from different draws of the
+prior (`prior_inits_neonorm()`), so that \(\hat{R}\) can detect chains that
+have not mixed. The slice sampler is used for `alpha` because it needs no
+proposal scale (Neal, 2003).
+
+```{r recovery}
+recovery <- cbind(true = true,
+                  fit$summary[names(true), c("Mean", "2.5%", "97.5%")])
+round(recovery, 3)
+```
+
+The true values should lie inside their 95% credible intervals, and the
+posterior means should be close to them. A single data set is only a sanity
+check, since a 95% interval misses the truth 5% of the time; the
+repeated-simulation study in the package repository
+(`analysis/simulation-study.R`) estimates bias, mean squared error and
+interval coverage over many data sets.
+
+## 5. Convergence diagnostics
+
+The summary reports the rank-normalised split-\(\hat{R}\) and the bulk and
+tail effective sample sizes of Vehtari et al. (2021). They recommend
+\(\hat{R} < 1.01\) and ESS above 100 per chain; `summarise_neonorm()` warns
+otherwise. Trace plots complement these numbers.
+
+```{r convergence}
+fit$summary[, c("Rhat", "ESS_bulk", "ESS_tail")]
+coda::traceplot(fit$samples[, "alpha"], main = "alpha")
+```
+
+## 6. Posterior predictive check
+
+We simulate replicated data sets from the fitted model and compare them
+with the observed data, both visually and through a test statistic, the
+sample skewness (Gelman et al., 2013, Chapter 6; Gabry et al., 2019).
+
+```{r ppc}
+yrep <- posterior_predict_neonorm(fit, ndraws = 200, seed = 1)
+
+plot(density(y), lwd = 2, main = "Observed (black) vs replicated (grey)",
+     xlab = "y")
+for (i in 1:50) lines(density(yrep[i, ]), col = grDevices::gray(0.6, 0.4))
+lines(density(y), lwd = 2)
+
+skewness <- function(v) mean((v - mean(v))^3) / stats::sd(v)^3
+t_obs <- skewness(y)
+t_rep <- apply(yrep, 1, skewness)
+hist(t_rep, breaks = 30, main = "Skewness of replicated data",
+     xlab = "sample skewness")
+abline(v = t_obs, lwd = 2)
+mean(t_rep >= t_obs)   # posterior predictive p-value
+```
+
+A posterior predictive p-value far from 0 and 1 means the model reproduces
+the skewness of the data.
+
+## 7. Model comparison
+
+Finally, we fit the normal and MSNBurr models to the same data and compare
+the three with WAIC (Watanabe, 2010; Vehtari et al., 2017); lower is
+better.
+
+```{r compare}
+fits <- list(
+  normal = runmcmc_neonorm(make_model("normal", y), niter = 4000,
+                           WAIC = TRUE),
+  msnburr = runmcmc_neonorm(make_model("msnburr", y), niter = 4000,
+                            sampler = "slice", WAIC = TRUE),
+  msnburr2a = fit
+)
+waic <- vapply(fits, function(f) f$WAIC$WAIC, numeric(1))
+sort(waic)
+```
+
+The data were generated from MSNBurr-IIa with a strong right skew, which
+MSNBurr-IIa accommodates most easily (Ramadani et al., 2025), so we expect
+it to have the lowest WAIC and the normal model, which cannot represent
+skewness, the highest. Differences of a few units of WAIC are within its
+sampling uncertainty (Vehtari et al., 2017).
+
+```{r cleanup}
+cleanup_neonorm(verbose = FALSE)
+sessionInfo()
+```
+
+## References
+
+Choir, A. S. (2020). *Distribusi neo-normal baru dan karakteristiknya*
+[Doctoral dissertation]. Institut Teknologi Sepuluh Nopember.
+
+Cook, S. R., Gelman, A., & Rubin, D. B. (2006). Validation of software for
+Bayesian models using posterior quantiles. *Journal of Computational and
+Graphical Statistics*, 15(3), 675–692.
+https://doi.org/10.1198/106186006X136976
+
+Gabry, J., Simpson, D., Vehtari, A., Betancourt, M., & Gelman, A. (2019).
+Visualization in Bayesian workflow. *Journal of the Royal Statistical
+Society: Series A*, 182(2), 389–402. https://doi.org/10.1111/rssa.12378
+
+Gelman, A. (2006). Prior distributions for variance parameters in
+hierarchical models. *Bayesian Analysis*, 1(3), 515–534.
+https://doi.org/10.1214/06-BA117A
+
+Gelman, A., Carlin, J. B., Stern, H. S., Dunson, D. B., Vehtari, A., &
+Rubin, D. B. (2013). *Bayesian Data Analysis* (3rd ed.). CRC Press.
+
+Gelman, A., Vehtari, A., Simpson, D., Margossian, C. C., Carpenter, B.,
+Yao, Y., Kennedy, L., Gabry, J., Bürkner, P.-C., & Modrák, M. (2020).
+*Bayesian workflow*. arXiv:2011.01808.
+https://doi.org/10.48550/arXiv.2011.01808
+
+Neal, R. M. (2003). Slice sampling. *The Annals of Statistics*, 31(3),
+705–767. https://doi.org/10.1214/aos/1056562461
+
+Ramadani, E. P., Choir, A. S., Pravitasari, A. A., & Paraguison, J. (2025).
+Adding MSNBURR-IIa distribution to MultiBUGS. *Jurnal Aplikasi Statistika &
+Komputasi Statistik*, 17(2), 109–130.
+https://doi.org/10.34123/jurnalasks.v17i2.804
+
+Vehtari, A., Gelman, A., & Gabry, J. (2017). Practical Bayesian model
+evaluation using leave-one-out cross-validation and WAIC. *Statistics and
+Computing*, 27(5), 1413–1432. https://doi.org/10.1007/s11222-016-9696-4
+
+Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., & Bürkner, P.-C.
+(2021). Rank-normalization, folding, and localization: An improved
+\(\hat{R}\) for assessing convergence of MCMC. *Bayesian Analysis*, 16(2),
+667–718. https://doi.org/10.1214/20-BA1221
+
+Watanabe, S. (2010). Asymptotic equivalence of Bayes cross validation and
+widely applicable information criterion in singular learning theory.
+*Journal of Machine Learning Research*, 11, 3571–3594.

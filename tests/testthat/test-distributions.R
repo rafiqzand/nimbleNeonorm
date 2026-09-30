@@ -10,32 +10,99 @@ for (family in names(families)) {
 
   # ---- Parameter validation --------------------------------------------------
 
-  test_that(paste(family, "density rejects invalid parameters"), {
-    expect_error(d(0, 0, 0, 1), "sigma must be > 0")
-    expect_error(d(0, 0, -1, 1), "sigma must be > 0")
-    expect_error(d(0, 0, 1, 0), "alpha must be > 0")
-    expect_error(d(0, 0, 1, -1), "alpha must be > 0")
-    expect_error(d(0, Inf, 1, 1), "mu must be finite")
-    expect_error(d(0, -Inf, 1, 1), "mu must be finite")
-    expect_error(d(0, 0, Inf, 1), "sigma must be finite")
-    expect_error(d(0, 0, -Inf, 1), "sigma must be finite")
-    expect_error(d(0, 0, 1, Inf), "alpha must be finite")
-    expect_error(d(0, 0, 1, -Inf), "alpha must be finite")
+  # Invalid inputs give NaN, as R's own distributions do (e.g.
+  # dnorm(0, sd = -1)), so that an MCMC rejects such proposals instead of
+  # stopping.
+  test_that(paste(family, "d, p, q and r return NaN for invalid parameters"), {
+    bad <- list(
+      c(mu = 0, sigma = 0, alpha = 1),
+      c(mu = 0, sigma = -1, alpha = 1),
+      c(mu = 0, sigma = 1, alpha = 0),
+      c(mu = 0, sigma = 1, alpha = -1),
+      c(mu = Inf, sigma = 1, alpha = 1),
+      c(mu = -Inf, sigma = 1, alpha = 1),
+      c(mu = 0, sigma = Inf, alpha = 1),
+      c(mu = 0, sigma = 1, alpha = Inf)
+    )
+    for (par in bad) {
+      expect_true(is.nan(d(0, par[["mu"]], par[["sigma"]], par[["alpha"]])))
+      expect_true(is.nan(
+        d(0, par[["mu"]], par[["sigma"]], par[["alpha"]], log = 1)
+      ))
+      expect_true(is.nan(p(0, par[["mu"]], par[["sigma"]], par[["alpha"]])))
+      expect_true(is.nan(q(0.5, par[["mu"]], par[["sigma"]], par[["alpha"]])))
+      expect_true(is.nan(r(1, par[["mu"]], par[["sigma"]], par[["alpha"]])))
+    }
   })
 
-  test_that(paste(family, "quantile rejects invalid probabilities"), {
-    expect_error(q(-0.1, 0, 1, 1), "p must be between 0 and 1")
-    expect_error(q(1.1, 0, 1, 1), "p must be between 0 and 1")
-    expect_error(q(0.1, 0, 1, 1, log.p = 1), "log\\(p\\) must be <= 0")
+  test_that(paste(family, "random generator returns NaN for NaN parameters"), {
+    expect_true(is.nan(r(1, NaN, 1, 1)))
+    expect_true(is.nan(r(1, 0, NaN, 1)))
+    expect_true(is.nan(r(1, 0, 1, NaN)))
   })
 
-  test_that(paste(family, "random generator validates n and parameters"), {
+  # The NaN check in d (x != x) only works in compiled code, where the
+  # density runs inside models; is.na() cannot be used there because
+  # NIMBLE's automatic differentiation does not support it. The check is
+  # therefore tested through a compiled model, as it is used in practice.
+  test_that(paste(family, "compiled model gives NaN log-density for NaN",
+                  "parameters"), {
+                    skip_on_cran()
+                    local_neonorm()
+                    dist <- if (family == "MSNBurr") "dmsnburr" else "dmsnburr2a"
+                    code <- eval(substitute(
+                      nimble::nimbleCode({
+                        y ~ DIST(mu, sigma, alpha)
+                      }),
+                      list(DIST = as.name(dist))
+                    ))
+                    model <- suppressMessages(nimble::nimbleModel(
+                      code,
+                      data = list(y = 0.3),
+                      inits = list(mu = 0.1, sigma = 1.2, alpha = 2)
+                    ))
+                    cmodel <- suppressMessages(nimble::compileNimble(model))
+
+                    # Compiled and uncompiled densities agree on valid input
+                    expect_equal(cmodel$calculate("y"), d(0.3, 0.1, 1.2, 2, log = 1),
+                                 tolerance = 1e-12)
+
+                    for (par in c("mu", "sigma", "alpha")) {
+                      cmodel[[par]] <- NaN
+                      expect_true(is.nan(cmodel$calculate("y")), info = par)
+                      cmodel[[par]] <- model[[par]]
+                    }
+                  })
+
+  test_that(paste(family, "quantile returns NaN for invalid probabilities"), {
+    expect_true(is.nan(q(-0.1, 0, 1, 1)))
+    expect_true(is.nan(q(1.1, 0, 1, 1)))
+    expect_true(is.nan(q(0.1, 0, 1, 1, log.p = 1)))
+  })
+
+  test_that(paste(family, "random generator only supports n = 1"), {
     expect_error(r(0, 0, 1, 1), "only supports n = 1")
     expect_error(r(2, 0, 1, 1), "only supports n = 1")
-    expect_error(r(1, 0, 0, 1), "sigma must be > 0")
-    expect_error(r(1, 0, 1, 0), "alpha must be > 0")
-    expect_error(r(1, Inf, 1, 1), "mu must be finite")
   })
+
+  test_that(paste(family, "invalid parameters give a non-finite",
+                  "log-probability in a model instead of an error"), {
+                    local_neonorm()
+                    dist <- if (family == "MSNBurr") "dmsnburr" else "dmsnburr2a"
+                    code <- eval(substitute(
+                      nimble::nimbleCode({
+                        y ~ DIST(mu, sigma, alpha)
+                      }),
+                      list(DIST = as.name(dist))
+                    ))
+                    model <- suppressMessages(nimble::nimbleModel(
+                      code,
+                      constants = list(mu = 0, sigma = -1, alpha = 1),
+                      data = list(y = 0)
+                    ))
+                    expect_false(is.finite(model$calculate()))
+                  })
+
 
 
   # ---- Density ---------------------------------------------------------------

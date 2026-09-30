@@ -2,9 +2,15 @@
 % Please edit documentation in R/mcmc.R
 \name{configure_mcmc_neonorm}
 \alias{configure_mcmc_neonorm}
-\title{Configure an MCMC for a neo-normal NIMBLE model}
+\title{Configure an MCMC for a neonormal NIMBLE model}
 \usage{
-configure_mcmc_neonorm(model, params = NULL, sampler = "default", thin = 1)
+configure_mcmc_neonorm(
+  model,
+  params = NULL,
+  sampler = "default",
+  thin = 1,
+  enableWAIC = FALSE
+)
 }
 \arguments{
 \item{model}{An uncompiled NIMBLE model created by \code{\link[nimble:nimbleModel]{nimble::nimbleModel()}}.
@@ -16,16 +22,21 @@ all stochastic non-data nodes are monitored.}
 
 \item{sampler}{Sampling strategy (case-insensitive):
 \itemize{
-\item \code{"default"}: NIMBLE's default samplers.
-\item \code{"slice"}: slice sampler on \code{alpha}, defaults elsewhere.
+\item \code{"default"}: NIMBLE's default samplers (for continuous scalar nodes,
+adaptive random-walk Metropolis-Hastings).
+\item \code{"slice"}: univariate slice sampler on \code{alpha}, defaults elsewhere.
 \item \code{"RW"}: adaptive random-walk Metropolis on \code{alpha}, defaults elsewhere.
-\item \code{"NUTS"}: NUTS on all continuous nodes, via \code{\link[nimbleHMC:configureHMC]{nimbleHMC::configureHMC()}}.
+\item \code{"NUTS"}: No-U-Turn Sampler, jointly on all continuous stochastic
+nodes (NIMBLE's defaults for any discrete ones), using
+\code{\link[nimbleHMC:sampler_NUTS]{nimbleHMC::sampler_NUTS()}}.
 \item \code{"HMC"}: alias for \code{"NUTS"}.
-\item \code{"mixed_nuts"}: NUTS on \code{alpha} only (via \code{\link[nimbleHMC:addHMC]{nimbleHMC::addHMC()}}),
-defaults elsewhere.
+\item \code{"mixed_nuts"}: NUTS on \code{alpha} only, defaults elsewhere.
 }}
 
 \item{thin}{Thinning interval for the monitored nodes.}
+
+\item{enableWAIC}{Logical; prepare the MCMC to compute WAIC
+(Watanabe, 2010) while it runs?}
 }
 \value{
 An \code{MCMCconf} object, to be passed to \code{\link[nimble:buildMCMC]{nimble::buildMCMC()}}.
@@ -40,7 +51,42 @@ The \code{alpha}-specific strategies look for stochastic nodes literally named
 \code{alpha} (e.g. \code{alpha} or \code{alpha[1]}). If there are none, a warning is
 given and NIMBLE's defaults are kept.
 
+Why these strategies. Random-walk Metropolis (Metropolis et al., 1953;
+Hastings, 1970) needs its proposal scale tuned; NIMBLE adapts it during
+burn-in, but a shape parameter whose posterior is strongly skewed can
+still mix slowly (Roberts et al., 1997). The slice sampler (Neal, 2003)
+adapts its step to the local shape of the posterior without a proposal
+scale, which suits such parameters. NUTS (Hoffman & Gelman, 2014) uses
+gradients of the log-posterior, which NIMBLE obtains by automatic
+differentiation; this is why the density, distribution and quantile
+functions are built with \code{buildDerivs = TRUE}.
+
 NUTS-based strategies need the \pkg{nimbleHMC} package.
+}
+\references{
+Hastings, W. K. (1970). Monte Carlo sampling methods using Markov chains
+and their applications. \emph{Biometrika}, 57(1), 97--109.
+\doi{10.1093/biomet/57.1.97}
+
+Hoffman, M. D., & Gelman, A. (2014). The No-U-Turn Sampler: Adaptively
+setting path lengths in Hamiltonian Monte Carlo. \emph{Journal of Machine
+Learning Research}, 15, 1593--1623.
+
+Metropolis, N., Rosenbluth, A. W., Rosenbluth, M. N., Teller, A. H., &
+Teller, E. (1953). Equation of state calculations by fast computing
+machines. \emph{The Journal of Chemical Physics}, 21(6), 1087--1092.
+\doi{10.1063/1.1699114}
+
+Neal, R. M. (2003). Slice sampling. \emph{The Annals of Statistics}, 31(3),
+705--767. \doi{10.1214/aos/1056562461}
+
+Roberts, G. O., Gelman, A., & Gilks, W. R. (1997). Weak convergence and
+optimal scaling of random walk Metropolis algorithms. \emph{The Annals of
+Applied Probability}, 7(1), 110--120. \doi{10.1214/aoap/1034625254}
+
+Watanabe, S. (2010). Asymptotic equivalence of Bayes cross validation and
+widely applicable information criterion in singular learning theory.
+\emph{Journal of Machine Learning Research}, 11, 3571--3594.
 }
 \seealso{
 \code{\link[=runmcmc_neonorm]{runmcmc_neonorm()}}, \code{\link[nimble:configureMCMC]{nimble::configureMCMC()}}

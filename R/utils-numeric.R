@@ -7,6 +7,10 @@
 # search path, so helpers that live only in the package namespace cannot be
 # found and compilation fails with "Problem with type of arg2 in
 # sizeBinaryCwise".
+#
+# [REVISI-05] File ini: KODE TIDAK BERUBAH. Yang berubah hanya dokumentasi
+# [REVISI-05] roxygen (@references ditambah/dilengkapi) supaya setiap
+# [REVISI-05] keputusan numerik punya rujukan.
 
 #' @importFrom nimble nimbleFunction nimStop
 NULL
@@ -14,11 +18,12 @@ NULL
 
 # ---- log1pexp_nimble --------------------------------------------------------
 
+# [REVISI-05] Ditambah rujukan Goldberg (1991) untuk overflow/underflow.
 #' Numerically stable `log(1 + exp(x))`
 #'
 #' Evaluates \eqn{\log(1 + e^x)} without overflow for large `x` and without
 #' loss of precision for very negative `x`, using the piecewise scheme of
-#' Mächler (2012).
+#' Mächler (2012, Eq. 10).
 #'
 #' | Region               | Expression used    |
 #' |----------------------|--------------------|
@@ -34,6 +39,10 @@ NULL
 #' @references
 #' Mächler, M. (2012). *Accurately computing* \eqn{\log(1 - \exp(-|a|))}.
 #' Vignette of the \pkg{Rmpfr} package.
+#'
+#' Goldberg, D. (1991). What every computer scientist should know about
+#' floating-point arithmetic. *ACM Computing Surveys*, 23(1), 5--48.
+#' \doi{10.1145/103162.103163}
 #'
 #' @keywords internal
 #' @export
@@ -60,17 +69,27 @@ log1pexp_nimble <- nimble::nimbleFunction(
 
 # ---- expm1_nimble -----------------------------------------------------------
 
+# [REVISI-05] Ditambah rujukan Higham (2002) + Maechler (2012, Pers. 2) dan
+# [REVISI-05] justifikasi angka 0.7: sisa Taylor < epsilon mesin (dihitung).
 #' Numerically stable `exp(x) - 1`
 #'
 #' Evaluates \eqn{e^x - 1} without the cancellation that `exp(x) - 1`
 #' suffers for `x` near zero. For \eqn{|x| \le 0.7} a 16th-order Taylor
-#' polynomial (in Horner form) is used; otherwise `exp(x) - 1` is accurate.
+#' polynomial (Mächler, 2012, Eq. 2), evaluated in Horner form, is used;
+#' otherwise `exp(x) - 1` is accurate. At \eqn{|x| = 0.7} the Lagrange
+#' remainder is at most \eqn{e^{0.7}\, 0.7^{17}/17! \approx 1.3 \times
+#' 10^{-17}}, below double-precision machine epsilon
+#' (\eqn{2^{-52} \approx 2.2 \times 10^{-16}}).
 #'
 #' The NIMBLE DSL has no `expm1()`, hence this helper.
 #'
 #' @param x Numeric scalar.
 #'
 #' @return Numeric scalar, \eqn{e^x - 1}.
+#'
+#' @references
+#' Higham, N. J. (2002). *Accuracy and Stability of Numerical Algorithms*
+#' (2nd ed.). SIAM. \doi{10.1137/1.9780898718027}
 #'
 #' @keywords internal
 #' @export
@@ -81,10 +100,10 @@ expm1_nimble <- nimble::nimbleFunction(
     if (abs(x) <= 0.7) {
       # sum_{k = 1}^{16} x^k / k!, in Horner form.
       return(x * (1 + x * (1 / 2 + x * (1 / 6 + x * (1 / 24 +
-        x * (1 / 120 + x * (1 / 720 + x * (1 / 5040 + x * (1 / 40320 +
-        x * (1 / 362880 + x * (1 / 3628800 + x * (1 / 39916800 +
-        x * (1 / 479001600 + x * (1 / 6227020800 + x * (1 / 87178291200 +
-        x * (1 / 1307674368000 + x * (1 / 20922789888000)))))))))))))))))
+                                                       x * (1 / 120 + x * (1 / 720 + x * (1 / 5040 + x * (1 / 40320 +
+                                                                                                            x * (1 / 362880 + x * (1 / 3628800 + x * (1 / 39916800 +
+                                                                                                                                                        x * (1 / 479001600 + x * (1 / 6227020800 + x * (1 / 87178291200 +
+                                                                                                                                                                                                          x * (1 / 1307674368000 + x * (1 / 20922789888000)))))))))))))))))
     }
     return(exp(x) - 1)
   },
@@ -94,11 +113,13 @@ expm1_nimble <- nimble::nimbleFunction(
 
 # ---- log1mexp_nimble --------------------------------------------------------
 
+# [REVISI-05] Rujukan dipertegas: Maechler (2012, Pers. 7) + alasan cut-off log 2.
 #' Numerically stable `log(1 - exp(-x))`
 #'
 #' Evaluates \eqn{\log(1 - e^{-x})} for \eqn{x \ge 0} following Mächler
-#' (2012): `log(-expm1(-x))` for \eqn{x \le \log 2} and `log1p(-exp(-x))`
-#' otherwise.
+#' (2012, Eq. 7): `log(-expm1(-x))` for \eqn{x \le \log 2} and
+#' `log1p(-exp(-x))` otherwise. The cut-off \eqn{a_0 = \log 2} is shown there
+#' to be optimal both theoretically and empirically.
 #'
 #' Its main use is turning a log-probability into the log of its
 #' complement: if \eqn{\ell = \log F \le 0}, then
@@ -107,7 +128,8 @@ expm1_nimble <- nimble::nimbleFunction(
 #' @param x Non-negative numeric scalar.
 #'
 #' @return Numeric scalar, \eqn{\log(1 - e^{-x})}; `-Inf` when `x = 0`.
-#'   Stops with an error when `x < 0`, where the result is not real.
+#'   Stops with an error when `x < 0`, where the result is not real. The
+#'   distribution functions only call it with valid arguments.
 #'
 #' @references
 #' Mächler, M. (2012). *Accurately computing* \eqn{\log(1 - \exp(-|a|))}.
@@ -136,17 +158,24 @@ log1mexp_nimble <- nimble::nimbleFunction(
 
 # ---- log_omega_msnburr ------------------------------------------------------
 
+# [REVISI-05] Ditambah rujukan Choir (2020) untuk definisi omega.
 #' Log of the MSNBurr scaling constant
 #'
 #' Computes \eqn{\log\omega} where
 #' \deqn{\omega = \frac{(1 + 1/\alpha)^{\alpha + 1}}{\sqrt{2\pi}},}
-#' the constant shared by the MSNBurr and MSNBurr-IIa distributions. Working
-#' on the log scale avoids overflow of \eqn{(1 + 1/\alpha)^{\alpha + 1}}, and
-#' `log1p()` keeps precision when \eqn{1/\alpha} is small.
+#' the constant shared by the MSNBurr and MSNBurr-IIa distributions. It is
+#' chosen so that the density at the mode equals that of a normal density,
+#' \eqn{1/(\sigma\sqrt{2\pi})}, whatever \eqn{\alpha} is. Working on the log
+#' scale avoids overflow of \eqn{(1 + 1/\alpha)^{\alpha + 1}}, and `log1p()`
+#' keeps precision when \eqn{1/\alpha} is small.
 #'
 #' @param alpha Positive numeric scalar, the shape parameter.
 #'
 #' @return Numeric scalar, \eqn{\log\omega}.
+#'
+#' @references
+#' Choir, A. S. (2020). *Distribusi neo-normal baru dan karakteristiknya*
+#' \[Doctoral dissertation\]. Institut Teknologi Sepuluh Nopember.
 #'
 #' @keywords internal
 #' @export

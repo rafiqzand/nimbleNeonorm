@@ -15,8 +15,14 @@ Numeric scalar, \eqn{\log\omega}.
 \description{
 Computes \eqn{\log\omega} where
 \deqn{\omega = \frac{(1 + 1/\alpha)^{\alpha + 1}}{\sqrt{2\pi}},}
-the constant shared by the MSNBurr and MSNBurr-IIa distributions. Working
-on the log scale avoids overflow of \eqn{(1 + 1/\alpha)^{\alpha + 1}}, and
-\code{log1p()} keeps precision when \eqn{1/\alpha} is small.
+the constant shared by the MSNBurr and MSNBurr-IIa distributions. It is
+chosen so that the density at the mode equals that of a normal density,
+\eqn{1/(\sigma\sqrt{2\pi})}, whatever \eqn{\alpha} is. Working on the log
+scale avoids overflow of \eqn{(1 + 1/\alpha)^{\alpha + 1}}, and \code{log1p()}
+keeps precision when \eqn{1/\alpha} is small.
+}
+\references{
+Choir, A. S. (2020). \emph{Distribusi neo-normal baru dan karakteristiknya}
+[Doctoral dissertation]. Institut Teknologi Sepuluh Nopember.
 }
 \keyword{internal}

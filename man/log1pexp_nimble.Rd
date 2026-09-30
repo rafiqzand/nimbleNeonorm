@@ -15,7 +15,7 @@ Numeric scalar, \eqn{\log(1 + e^x)}.
 \description{
 Evaluates \eqn{\log(1 + e^x)} without overflow for large \code{x} and without
 loss of precision for very negative \code{x}, using the piecewise scheme of
-Mächler (2012).
+Mächler (2012, Eq. 10).
 }
 \details{
 \tabular{ll}{
@@ -29,5 +29,9 @@ Mächler (2012).
 \references{
 Mächler, M. (2012). \emph{Accurately computing} \eqn{\log(1 - \exp(-|a|))}.
 Vignette of the \pkg{Rmpfr} package.
+
+Goldberg, D. (1991). What every computer scientist should know about
+floating-point arithmetic. \emph{ACM Computing Surveys}, 23(1), 5--48.
+\doi{10.1145/103162.103163}
 }
 \keyword{internal}

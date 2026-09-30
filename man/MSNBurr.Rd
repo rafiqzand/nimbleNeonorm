@@ -39,7 +39,8 @@ non-zero).}
 }
 \value{
 A numeric scalar: the density (\code{dmsnburr()}), probability
-(\code{pmsnburr()}), quantile (\code{qmsnburr()}) or random draw (\code{rmsnburr()}).
+(\code{pmsnburr()}), quantile (\code{qmsnburr()}) or random draw (\code{rmsnburr()});
+\code{NaN} for invalid inputs.
 }
 \description{
 Density, distribution function, quantile function and random generation
@@ -66,17 +67,32 @@ and the quantile function is
 }
 The mode is \eqn{\mu}, and for every \eqn{\alpha} the density there is
 \eqn{1/(\sigma\sqrt{2\pi})}, the same as a normal density with standard
-deviation \eqn{\sigma}.
+deviation \eqn{\sigma}. The distribution is symmetric (logistic) for
+\eqn{\alpha = 1}, skewed to the left for \eqn{\alpha < 1} and to the
+right for \eqn{\alpha > 1}; it inherits from the Burr II distribution a
+stronger capacity for left skewness than for right skewness.
 
 All computations are carried out on the log scale with
 \code{\link[=log1pexp_nimble]{log1pexp_nimble()}} and \code{\link[=log1mexp_nimble]{log1mexp_nimble()}}, so tail probabilities and
-log-densities stay accurate far into the tails.
+log-densities stay accurate far into the tails. Random draws use
+inverse-transform sampling, \eqn{X = Q(U)} with
+\eqn{U \sim \mathrm{Uniform}(0, 1)}.
 
 Following NIMBLE conventions, each function works on scalars and the
 logical flags \code{log}, \code{lower.tail} and \code{log.p} are integers (\code{0} = \code{FALSE},
 non-zero = \code{TRUE}). \code{rmsnburr()} returns a single draw and only accepts
-\code{n = 1}. Invalid parameters (non-finite values, \code{sigma <= 0} or
-\code{alpha <= 0}) raise an error.
+\code{n = 1}.
+
+Invalid inputs return \code{NaN}, as R's and NIMBLE's built-in distributions
+do: non-finite or \code{NaN} parameters, \code{sigma <= 0}, \code{alpha <= 0}, a
+probability outside \eqn{[0, 1]} or a positive log-probability.
+One exception: when the d, p and q functions are called from R without
+compilation, a \code{NaN} argument stops with R's "missing value" error,
+because their \code{NaN} check (\code{x != x}) only works in compiled code;
+\code{is.na()} cannot be used there as it has no derivative support in
+NIMBLE. Inside compiled models, \code{NaN} arguments give \code{NaN}. Inside
+an MCMC, a \code{NaN} log-density makes the sampler reject the proposal
+instead of stopping the run.
 }
 \examples{
 dmsnburr(0, mu = 0, sigma = 1, alpha = 1)
@@ -85,6 +101,24 @@ qmsnburr(0.5, mu = 0, sigma = 1, alpha = 2)
 set.seed(1)
 rmsnburr(1, mu = 0, sigma = 1, alpha = 2)
 
+# Invalid parameters give NaN rather than an error
+dmsnburr(0, mu = 0, sigma = -1, alpha = 1)
+
+}
+\references{
+Burr, I. W. (1942). Cumulative frequency functions. \emph{The Annals of
+Mathematical Statistics}, 13(2), 215--232. \doi{10.1214/aoms/1177731607}
+
+Choir, A. S. (2020). \emph{Distribusi neo-normal baru dan karakteristiknya}
+[Doctoral dissertation]. Institut Teknologi Sepuluh Nopember.
+
+Devroye, L. (1986). \emph{Non-Uniform Random Variate Generation}. Springer.
+\doi{10.1007/978-1-4613-8643-8}
+
+Iriawan, N. (2012). \emph{Pemodelan dan Analisis Data-Driven}. ITS Press.
+
+Mächler, M. (2012). \emph{Accurately computing} \eqn{\log(1 - \exp(-|a|))}.
+Vignette of the \pkg{Rmpfr} package.
 }
 \seealso{
 \link{MSNBurr2a} for the mirror-image distribution,

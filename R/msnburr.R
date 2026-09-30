@@ -4,6 +4,12 @@
 
 #' @include utils-numeric.R
 NULL
+
+# [REVISI-01] Dokumentasi: kalimat "Invalid parameters ... raise an error"
+# [REVISI-01] diganti karena sekarang parameter tidak valid menghasilkan NaN.
+# [REVISI-05] Dokumentasi: ditambah paragraf sifat kemiringan (alpha < 1,
+# [REVISI-05] = 1, > 1) dan blok @references (Choir 2020, Iriawan 2012,
+# [REVISI-05] Burr 1942, Maechler 2012, Devroye 1986).
 #' The MSNBurr distribution
 #'
 #' Density, distribution function, quantile function and random generation
@@ -30,17 +36,32 @@ NULL
 #' }
 #' The mode is \eqn{\mu}, and for every \eqn{\alpha} the density there is
 #' \eqn{1/(\sigma\sqrt{2\pi})}, the same as a normal density with standard
-#' deviation \eqn{\sigma}.
+#' deviation \eqn{\sigma}. The distribution is symmetric (logistic) for
+#' \eqn{\alpha = 1}, skewed to the left for \eqn{\alpha < 1} and to the
+#' right for \eqn{\alpha > 1}; it inherits from the Burr II distribution a
+#' stronger capacity for left skewness than for right skewness.
 #'
 #' All computations are carried out on the log scale with
 #' [log1pexp_nimble()] and [log1mexp_nimble()], so tail probabilities and
-#' log-densities stay accurate far into the tails.
+#' log-densities stay accurate far into the tails. Random draws use
+#' inverse-transform sampling, \eqn{X = Q(U)} with
+#' \eqn{U \sim \mathrm{Uniform}(0, 1)}.
 #'
 #' Following NIMBLE conventions, each function works on scalars and the
 #' logical flags `log`, `lower.tail` and `log.p` are integers (`0` = `FALSE`,
 #' non-zero = `TRUE`). `rmsnburr()` returns a single draw and only accepts
-#' `n = 1`. Invalid parameters (non-finite values, `sigma <= 0` or
-#' `alpha <= 0`) raise an error.
+#' `n = 1`.
+#'
+#' Invalid inputs return `NaN`, as R's and NIMBLE's built-in distributions
+#' do: non-finite or `NaN` parameters, `sigma <= 0`, `alpha <= 0`, a
+#' probability outside \eqn{[0, 1]} or a positive log-probability.
+#' One exception: when the d, p and q functions are called from R without
+#' compilation, a `NaN` argument stops with R's "missing value" error,
+#' because their `NaN` check (`x != x`) only works in compiled code;
+#' `is.na()` cannot be used there as it has no derivative support in
+#' NIMBLE. Inside compiled models, `NaN` arguments give `NaN`. Inside
+#' an MCMC, a `NaN` log-density makes the sampler reject the proposal
+#' instead of stopping the run.
 #'
 #' @param x,q Numeric scalar, the point at which to evaluate the density or
 #'   distribution function.
@@ -56,7 +77,23 @@ NULL
 #'   \eqn{P(X \le x)}, otherwise \eqn{P(X > x)}.
 #'
 #' @return A numeric scalar: the density (`dmsnburr()`), probability
-#'   (`pmsnburr()`), quantile (`qmsnburr()`) or random draw (`rmsnburr()`).
+#'   (`pmsnburr()`), quantile (`qmsnburr()`) or random draw (`rmsnburr()`);
+#'   `NaN` for invalid inputs.
+#'
+#' @references
+#' Burr, I. W. (1942). Cumulative frequency functions. *The Annals of
+#' Mathematical Statistics*, 13(2), 215--232. \doi{10.1214/aoms/1177731607}
+#'
+#' Choir, A. S. (2020). *Distribusi neo-normal baru dan karakteristiknya*
+#' \[Doctoral dissertation\]. Institut Teknologi Sepuluh Nopember.
+#'
+#' Devroye, L. (1986). *Non-Uniform Random Variate Generation*. Springer.
+#' \doi{10.1007/978-1-4613-8643-8}
+#'
+#' Iriawan, N. (2012). *Pemodelan dan Analisis Data-Driven*. ITS Press.
+#'
+#' Mächler, M. (2012). *Accurately computing* \eqn{\log(1 - \exp(-|a|))}.
+#' Vignette of the \pkg{Rmpfr} package.
 #'
 #' @seealso [MSNBurr2a] for the mirror-image distribution,
 #'   [register_msnburr()] to use it in NIMBLE models.
@@ -67,6 +104,9 @@ NULL
 #' qmsnburr(0.5, mu = 0, sigma = 1, alpha = 2)
 #' set.seed(1)
 #' rmsnburr(1, mu = 0, sigma = 1, alpha = 2)
+#'
+#' # Invalid parameters give NaN rather than an error
+#' dmsnburr(0, mu = 0, sigma = -1, alpha = 1)
 #'
 #' @name MSNBurr
 NULL
@@ -84,11 +124,17 @@ dmsnburr <- nimble::nimbleFunction(
                  log = integer(0, default = 0)) {
     returnType(double(0))
 
-    if (mu == Inf | mu == -Inf) nimStop("mu must be finite")
-    if (sigma == Inf | sigma == -Inf) nimStop("sigma must be finite")
-    if (alpha == Inf | alpha == -Inf) nimStop("alpha must be finite")
-    if (sigma <= 0) nimStop("sigma must be > 0")
-    if (alpha <= 0) nimStop("alpha must be > 0")
+    # [REVISI-01] Sebelumnya: nimStop() untuk parameter tidak valid.
+    # [REVISI-01] Sekarang: mengembalikan NaN seperti dnorm(0, sd = -1) di R
+    # [REVISI-01] dan distribusi bawaan NIMBLE. Ditambah cek NaN (x != x)
+    # [REVISI-01] yang sebelumnya belum ada di fungsi d.
+    # Invalid inputs give NaN, as R's and NIMBLE's built-in densities do.
+    # x != x is TRUE only for NaN in compiled code. is.na() cannot be used
+    # here: NIMBLE's automatic differentiation (buildDerivs) does not
+    # support it for double arguments.
+    if (x != x | mu != mu | sigma != sigma | alpha != alpha) return(NaN)
+    if (abs(mu) == Inf | sigma == Inf | alpha == Inf) return(NaN)
+    if (sigma <= 0 | alpha <= 0) return(NaN)
 
     # Handle infinite x before standardising, where Inf - Inf would give NaN.
     if (x == Inf | x == -Inf) {
@@ -126,16 +172,13 @@ pmsnburr <- nimble::nimbleFunction(
                  log.p = integer(0, default = 0)) {
     returnType(double(0))
 
-    if (q != q) return(NaN)
-
-    if (mu != mu) nimStop("mu must not be NaN")
-    if (sigma != sigma) nimStop("sigma must not be NaN")
-    if (alpha != alpha) nimStop("alpha must not be NaN")
-    if (mu == Inf | mu == -Inf) nimStop("mu must be finite")
-    if (sigma == Inf | sigma == -Inf) nimStop("sigma must be finite")
-    if (alpha == Inf | alpha == -Inf) nimStop("alpha must be finite")
-    if (sigma <= 0) nimStop("sigma must be > 0")
-    if (alpha <= 0) nimStop("alpha must be > 0")
+    # [REVISI-01] nimStop() diganti return(NaN); cek NaN digabung satu baris.
+    # x != x is TRUE only for NaN in compiled code. is.na() cannot be used
+    # here: NIMBLE's automatic differentiation (buildDerivs) does not
+    # support it for double arguments.
+    if (q != q | mu != mu | sigma != sigma | alpha != alpha) return(NaN)
+    if (abs(mu) == Inf | sigma == Inf | alpha == Inf) return(NaN)
+    if (sigma <= 0 | alpha <= 0) return(NaN)
 
     # Limits at the ends of the support.
     if (q == -Inf) {
@@ -189,22 +232,20 @@ qmsnburr <- nimble::nimbleFunction(
                  log.p = integer(0, default = 0)) {
     returnType(double(0))
 
-    if (p != p) return(NaN)
-
-    if (mu != mu) nimStop("mu must not be NaN")
-    if (sigma != sigma) nimStop("sigma must not be NaN")
-    if (alpha != alpha) nimStop("alpha must not be NaN")
-    if (mu == Inf | mu == -Inf) nimStop("mu must be finite")
-    if (sigma == Inf | sigma == -Inf) nimStop("sigma must be finite")
-    if (alpha == Inf | alpha == -Inf) nimStop("alpha must be finite")
-    if (sigma <= 0) nimStop("sigma must be > 0")
-    if (alpha <= 0) nimStop("alpha must be > 0")
+    # [REVISI-01] nimStop() diganti return(NaN), termasuk untuk p di luar
+    # [REVISI-01] [0, 1] dan log(p) > 0 (sama seperti qnorm(1.1) di R).
+    # x != x is TRUE only for NaN in compiled code. is.na() cannot be used
+    # here: NIMBLE's automatic differentiation (buildDerivs) does not
+    # support it for double arguments.
+    if (p != p | mu != mu | sigma != sigma | alpha != alpha) return(NaN)
+    if (abs(mu) == Inf | sigma == Inf | alpha == Inf) return(NaN)
+    if (sigma <= 0 | alpha <= 0) return(NaN)
 
     # Convert the input, whatever its tail and scale, to log F (lower tail),
     # returning early at the ends of the support.
     log_cdf <- 0
     if (log.p != 0) {
-      if (p > 0) nimStop("log(p) must be <= 0")
+      if (p > 0) return(NaN)
       if (lower.tail != 0) {
         if (p == -Inf) return(-Inf)
         log_cdf <- p
@@ -213,7 +254,7 @@ qmsnburr <- nimble::nimbleFunction(
         log_cdf <- log1mexp_nimble(-p)
       }
     } else {
-      if (p < 0 | p > 1) nimStop("p must be between 0 and 1")
+      if (p < 0 | p > 1) return(NaN)
       if (lower.tail != 0) {
         if (p == 0) return(-Inf)
         if (p == 1) return(Inf)
@@ -249,17 +290,16 @@ rmsnburr <- nimble::nimbleFunction(
                  alpha = double(0)) {
     returnType(double(0))
 
-    # NIMBLE simulation functions return one draw per call.
+    # NIMBLE simulation functions return one draw per call (NIMBLE User
+    # Manual, "Creating user-defined distributions"). A wrong `n` is a
+    # programming error, so it still stops.
     if (n != 1) nimStop("rmsnburr only supports n = 1")
 
-    if (mu != mu) nimStop("mu must not be NaN")
-    if (sigma != sigma) nimStop("sigma must not be NaN")
-    if (alpha != alpha) nimStop("alpha must not be NaN")
-    if (mu == Inf | mu == -Inf) nimStop("mu must be finite")
-    if (sigma == Inf | sigma == -Inf) nimStop("sigma must be finite")
-    if (alpha == Inf | alpha == -Inf) nimStop("alpha must be finite")
-    if (sigma <= 0) nimStop("sigma must be > 0")
-    if (alpha <= 0) nimStop("alpha must be > 0")
+    # [REVISI-01] Parameter tidak valid: nimStop() diganti return(NaN),
+    # [REVISI-01] sama seperti rnorm(1, sd = -1) di R.
+    if (is.na(mu) | is.na(sigma) | is.na(alpha)) return(NaN)
+    if (abs(mu) == Inf | sigma == Inf | alpha == Inf) return(NaN)
+    if (sigma <= 0 | alpha <= 0) return(NaN)
 
     omega <- exp(log_omega_msnburr(alpha))
 

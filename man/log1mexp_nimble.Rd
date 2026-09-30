@@ -11,12 +11,14 @@ log1mexp_nimble(x)
 }
 \value{
 Numeric scalar, \eqn{\log(1 - e^{-x})}; \code{-Inf} when \code{x = 0}.
-Stops with an error when \code{x < 0}, where the result is not real.
+Stops with an error when \code{x < 0}, where the result is not real. The
+distribution functions only call it with valid arguments.
 }
 \description{
 Evaluates \eqn{\log(1 - e^{-x})} for \eqn{x \ge 0} following Mächler
-(2012): \code{log(-expm1(-x))} for \eqn{x \le \log 2} and \code{log1p(-exp(-x))}
-otherwise.
+(2012, Eq. 7): \code{log(-expm1(-x))} for \eqn{x \le \log 2} and
+\code{log1p(-exp(-x))} otherwise. The cut-off \eqn{a_0 = \log 2} is shown there
+to be optimal both theoretically and empirically.
 }
 \details{
 Its main use is turning a log-probability into the log of its

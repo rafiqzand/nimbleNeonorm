@@ -40,7 +40,7 @@ non-zero).}
 \value{
 A numeric scalar: the density (\code{dmsnburr2a()}), probability
 (\code{pmsnburr2a()}), quantile (\code{qmsnburr2a()}) or random draw
-(\code{rmsnburr2a()}).
+(\code{rmsnburr2a()}); \code{NaN} for invalid inputs.
 }
 \description{
 Density, distribution function, quantile function and random generation
@@ -69,16 +69,29 @@ and the quantile function is
   Q(p) = \mu + \frac{\sigma}{\omega}
   \left[\log\alpha + \log\left((1 - p)^{-1/\alpha} - 1\right)\right].
 }
+The distribution is symmetric for \eqn{\alpha = 1}, skewed to the right
+for \eqn{\alpha < 1} and to the left for \eqn{\alpha > 1}; it inherits
+from the Burr IIa distribution a stronger capacity for right skewness than
+for left skewness (Ramadani et al., 2025).
 
 All computations are carried out on the log scale with
 \code{\link[=log1pexp_nimble]{log1pexp_nimble()}} and \code{\link[=log1mexp_nimble]{log1mexp_nimble()}}, so tail probabilities and
-log-densities stay accurate far into the tails.
+log-densities stay accurate far into the tails. Random draws use
+inverse-transform sampling with \eqn{S = 1 - U}.
 
 Following NIMBLE conventions, each function works on scalars and the
 logical flags \code{log}, \code{lower.tail} and \code{log.p} are integers (\code{0} = \code{FALSE},
 non-zero = \code{TRUE}). \code{rmsnburr2a()} returns a single draw and only accepts
-\code{n = 1}. Invalid parameters (non-finite values, \code{sigma <= 0} or
-\code{alpha <= 0}) raise an error.
+\code{n = 1}.
+
+Invalid inputs return \code{NaN}, as R's and NIMBLE's built-in distributions
+do: non-finite or \code{NaN} parameters, \code{sigma <= 0}, \code{alpha <= 0}, a
+probability outside \eqn{[0, 1]} or a positive log-probability.
+One exception: when the d, p and q functions are called from R without
+compilation, a \code{NaN} argument stops with R's "missing value" error,
+because their \code{NaN} check (\code{x != x}) only works in compiled code;
+\code{is.na()} cannot be used there as it has no derivative support in
+NIMBLE. Inside compiled models, \code{NaN} arguments give \code{NaN}.
 }
 \examples{
 dmsnburr2a(0, mu = 0, sigma = 1, alpha = 1)
@@ -87,6 +100,18 @@ qmsnburr2a(0.5, mu = 0, sigma = 1, alpha = 2)
 set.seed(1)
 rmsnburr2a(1, mu = 0, sigma = 1, alpha = 2)
 
+}
+\references{
+Ramadani, E. P., Choir, A. S., Pravitasari, A. A., & Paraguison, J.
+(2025). Adding MSNBURR-IIa distribution to MultiBUGS. \emph{Jurnal Aplikasi
+Statistika & Komputasi Statistik}, 17(2), 109--130.
+\doi{10.34123/jurnalasks.v17i2.804}
+
+Choir, A. S. (2020). \emph{Distribusi neo-normal baru dan karakteristiknya}
+[Doctoral dissertation]. Institut Teknologi Sepuluh Nopember.
+
+Mächler, M. (2012). \emph{Accurately computing} \eqn{\log(1 - \exp(-|a|))}.
+Vignette of the \pkg{Rmpfr} package.
 }
 \seealso{
 \link{MSNBurr} for the mirror-image distribution,

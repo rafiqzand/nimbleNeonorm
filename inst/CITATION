@@ -1,0 +1,16 @@
+bibentry(
+  bibtype = "Manual",
+  title = "{nimbleNeonorm}: Neonormal Distributions for {NIMBLE}",
+  author = c(
+    person("Achmad Syahrul", "Choir"),
+    person("La Ode Rafiq Zandik", "Badarun")
+  ),
+  year = "2026",
+  note = paste("R package version", meta$Version),
+  url = "https://github.com/rafiqzand/nimbleNeonorm",
+  textVersion = paste0(
+    "Choir, A. S., & Badarun, L. O. R. Z. (2026). nimbleNeonorm: ",
+    "Neonormal distributions for NIMBLE (R package version ",
+    meta$Version, "). https://github.com/rafiqzand/nimbleNeonorm"
+  )
+)

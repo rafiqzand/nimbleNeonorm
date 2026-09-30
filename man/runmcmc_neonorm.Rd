@@ -2,19 +2,20 @@
 % Please edit documentation in R/mcmc.R
 \name{runmcmc_neonorm}
 \alias{runmcmc_neonorm}
-\title{Compile and run an MCMC for a neo-normal NIMBLE model}
+\title{Compile and run an MCMC for a neonormal NIMBLE model}
 \usage{
 runmcmc_neonorm(
   model,
   niter = 10000,
   nburnin = NULL,
   thin = 1,
-  nchains = 1,
+  nchains = 4,
   params = NULL,
   sampler = "default",
   summary = TRUE,
   setSeed = TRUE,
-  inits = NULL
+  inits = NULL,
+  WAIC = FALSE
 )
 }
 \arguments{
@@ -29,56 +30,76 @@ than \code{niter}. Defaults to \code{floor(niter / 2)}.}
 
 \item{thin}{Thinning interval for the monitored nodes.}
 
-\item{nchains}{Number of chains.}
+\item{nchains}{Number of chains. At least four are recommended so that
+\eqn{\hat{R}} is informative (Vehtari et al., 2021).}
 
 \item{params}{Character vector of nodes to monitor. If \code{NULL} (default),
 all stochastic non-data nodes are monitored.}
 
 \item{sampler}{Sampling strategy (case-insensitive):
 \itemize{
-\item \code{"default"}: NIMBLE's default samplers.
-\item \code{"slice"}: slice sampler on \code{alpha}, defaults elsewhere.
+\item \code{"default"}: NIMBLE's default samplers (for continuous scalar nodes,
+adaptive random-walk Metropolis-Hastings).
+\item \code{"slice"}: univariate slice sampler on \code{alpha}, defaults elsewhere.
 \item \code{"RW"}: adaptive random-walk Metropolis on \code{alpha}, defaults elsewhere.
-\item \code{"NUTS"}: NUTS on all continuous nodes, via \code{\link[nimbleHMC:configureHMC]{nimbleHMC::configureHMC()}}.
+\item \code{"NUTS"}: No-U-Turn Sampler, jointly on all continuous stochastic
+nodes (NIMBLE's defaults for any discrete ones), using
+\code{\link[nimbleHMC:sampler_NUTS]{nimbleHMC::sampler_NUTS()}}.
 \item \code{"HMC"}: alias for \code{"NUTS"}.
-\item \code{"mixed_nuts"}: NUTS on \code{alpha} only (via \code{\link[nimbleHMC:addHMC]{nimbleHMC::addHMC()}}),
-defaults elsewhere.
+\item \code{"mixed_nuts"}: NUTS on \code{alpha} only, defaults elsewhere.
 }}
 
-\item{summary}{Logical; also return a posterior summary?}
+\item{summary}{Logical; also return a posterior summary with convergence
+diagnostics (see \code{\link[=summarise_neonorm]{summarise_neonorm()}})?}
 
 \item{setSeed}{Controls reproducibility. \code{TRUE} (default) uses seeds
 \verb{123, 124, ...} for chains \verb{1, 2, ...}; a number \code{s} uses seeds
 \verb{s, s + 1, ...}; \code{FALSE} sets no seed.}
 
 \item{inits}{Optional initial values, passed to \code{\link[nimble:runMCMC]{nimble::runMCMC()}}: a
-list, a list of lists (one per chain) or a function. If \code{NULL}, the
-first chain starts from the values currently stored in \code{model} and each
-later chain continues from where the previous one ended; supply \code{inits}
-for chains with dispersed starting values.}
+list, a list of lists (one per chain) or a function. If \code{NULL} and
+\code{nchains > 1}, dispersed initial values are drawn from the prior with
+\code{\link[=prior_inits_neonorm]{prior_inits_neonorm()}}; if \code{NULL} and \code{nchains = 1}, the chain starts
+from the values currently stored in \code{model}.}
+
+\item{WAIC}{Logical; compute the widely applicable information criterion
+(Watanabe, 2010) for model comparison? Lower is better.}
 }
 \value{
-A list with elements
+An object of class \code{neonorm_fit}: a list with elements
 \itemize{
 \item \code{samples}: a matrix of draws (one column per monitored node) for a
 single chain, or a \code{coda::mcmc.list} for several chains;
+\item \code{summary}: only if \code{summary = TRUE}, the matrix returned by
+\code{\link[=summarise_neonorm]{summarise_neonorm()}};
+\item \code{WAIC}: only if \code{WAIC = TRUE}, NIMBLE's WAIC result (a list with
+elements \code{WAIC}, \code{lppd} and \code{pWAIC});
 \item \code{config}: the \code{MCMCconf} object used;
-\item \code{summary}: only if \code{summary = TRUE}, a matrix with columns \code{Mean},
-\code{SD}, \verb{2.5\%}, \verb{50\%} and \verb{97.5\%}, computed from all chains pooled.
+\item \code{inits}: the initial values used (\code{NULL} if taken from \code{model});
+\item \code{model}: the uncompiled model;
+\item \code{compiled}: a list with the compiled \code{model} and \code{mcmc};
+\item \code{settings}: the run settings (\code{niter}, \code{nburnin}, \code{thin}, \code{nchains},
+\code{sampler}).
 }
 }
 \description{
 Configures (with \code{\link[=configure_mcmc_neonorm]{configure_mcmc_neonorm()}}), builds, compiles and runs an
-MCMC, and returns the posterior draws with a short summary.
+MCMC, and returns the posterior draws with a summary that includes
+convergence diagnostics and, optionally, WAIC.
 }
 \details{
 Burn-in is discarded before thinning, so each chain returns
 \code{floor((niter - nburnin) / thin)} draws.
 
-The model is compiled on every call. For repeated runs on the same model,
-build and compile once with \code{\link[=configure_mcmc_neonorm]{configure_mcmc_neonorm()}},
-\code{\link[nimble:buildMCMC]{nimble::buildMCMC()}} and \code{\link[nimble:compileNimble]{nimble::compileNimble()}}, then call
-\code{\link[nimble:runMCMC]{nimble::runMCMC()}} directly.
+Before compiling, the function checks that the model's log-probability
+at the starting values is finite, and stops with an informative message
+otherwise.
+
+The model is compiled on every call. For repeated runs on the same model
+(e.g. a simulation study), build and compile once with
+\code{\link[=configure_mcmc_neonorm]{configure_mcmc_neonorm()}}, \code{\link[nimble:buildMCMC]{nimble::buildMCMC()}} and
+\code{\link[nimble:compileNimble]{nimble::compileNimble()}}, then call \code{\link[nimble:runMCMC]{nimble::runMCMC()}} directly, or
+reuse \code{fit$compiled$mcmc}.
 }
 \examples{
 \donttest{
@@ -88,12 +109,13 @@ code <- nimble::nimbleCode({
   for (i in 1:N) {
     y[i] ~ dmsnburr(mu, sigma, alpha)
   }
-  mu ~ dnorm(0, sd = 10)
+  mu ~ dnorm(0, sd = 5)
   sigma ~ dexp(1)
-  alpha ~ dgamma(2, 1)
+  alpha ~ dlnorm(0, sdlog = 1)
 })
 
-y <- c(-0.4, 0.2, 1.3, 0.8, -1.1)
+set.seed(1)
+y <- replicate(50, rmsnburr(1, mu = 0, sigma = 1, alpha = 3))
 model <- nimble::nimbleModel(
   code,
   constants = list(N = length(y)),
@@ -101,13 +123,29 @@ model <- nimble::nimbleModel(
   inits = list(mu = 0, sigma = 1, alpha = 1)
 )
 
-fit <- runmcmc_neonorm(model, niter = 2000, sampler = "slice")
-fit$summary
+fit <- runmcmc_neonorm(model, niter = 2000, sampler = "slice", WAIC = TRUE)
+fit
 
 cleanup_neonorm(verbose = FALSE)
 }
 
 }
+\references{
+Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., & Bürkner, P.-C.
+(2021). Rank-normalization, folding, and localization: An improved
+\eqn{\hat{R}} for assessing convergence of MCMC. \emph{Bayesian Analysis},
+16(2), 667--718. \doi{10.1214/20-BA1221}
+
+Vehtari, A., Gelman, A., & Gabry, J. (2017). Practical Bayesian model
+evaluation using leave-one-out cross-validation and WAIC. \emph{Statistics
+and Computing}, 27(5), 1413--1432. \doi{10.1007/s11222-016-9696-4}
+
+Watanabe, S. (2010). Asymptotic equivalence of Bayes cross validation and
+widely applicable information criterion in singular learning theory.
+\emph{Journal of Machine Learning Research}, 11, 3571--3594.
+}
 \seealso{
-\code{\link[=configure_mcmc_neonorm]{configure_mcmc_neonorm()}}, \code{\link[nimble:runMCMC]{nimble::runMCMC()}}
+\code{\link[=configure_mcmc_neonorm]{configure_mcmc_neonorm()}}, \code{\link[=prior_inits_neonorm]{prior_inits_neonorm()}},
+\code{\link[=summarise_neonorm]{summarise_neonorm()}}, \code{\link[=posterior_predict_neonorm]{posterior_predict_neonorm()}},
+\code{\link[nimble:runMCMC]{nimble::runMCMC()}}
 }

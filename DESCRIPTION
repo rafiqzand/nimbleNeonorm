@@ -1,6 +1,6 @@
 Package: nimbleNeonorm
-Title: Neo-Normal Distributions for 'NIMBLE'
-Version: 0.1.1
+Title: Neonormal Distributions for 'NIMBLE'
+Version: 0.2.0
 Authors@R: c(
     person(
       "Achmad Syahrul", "Choir",
@@ -14,12 +14,15 @@ Authors@R: c(
     )
   )
 Description: Provides two flexible neo-normal probability distributions,
-    MSNBurr and MSNBurr-IIa, with integration for the 'NIMBLE' Bayesian
-    inference framework. Both distributions extend the normal distribution
-    with additional shape parameters controlling skewness. The package
+    MSNBurr and MSNBurr-IIa, as user-defined distributions for the 'NIMBLE'
+    Bayesian inference framework. Both distributions extend the normal
+    distribution with a shape parameter controlling skewness. The package
     provides density, distribution, quantile, and random generation
     functions for use in 'NIMBLE' models, with derivative support for
-    Hamiltonian Monte Carlo (HMC) and No-U-Turn Sampler (NUTS) methods.
+    Hamiltonian Monte Carlo (HMC) and No-U-Turn Sampler (NUTS) methods,
+    and helpers that follow the Bayesian workflow: prior and posterior
+    predictive simulation, dispersed initial values, convergence
+    diagnostics (rank-normalised R-hat and effective sample size) and WAIC.
 License: MIT + file LICENSE
 Config/roxygen2/version: 8.1.0
 Encoding: UTF-8
@@ -30,20 +33,25 @@ Depends:
 Imports:
     coda,
     methods,
+    posterior,
     stats,
-    utils
-Suggests:
-    nimbleHMC,
-    Rmpfr,
-    testthat (>= 3.1.5),
+    utils,
     withr
+Suggests:
+    knitr,
+    nimbleHMC,
+    rmarkdown,
+    Rmpfr,
+    testthat (>= 3.1.5)
+VignetteBuilder: knitr
 Config/testthat/edition: 3
-Collate: 
+Collate:
     'mcmc.R'
     'utils-numeric.R'
     'msnburr.R'
     'msnburr2a.R'
     'nimbleNeonorm-package.R'
+    'predictive.R'
     'registration.R'
     'zzz.R'
 URL: https://github.com/rafiqzand/nimbleNeonorm

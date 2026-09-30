@@ -15,9 +15,17 @@ Numeric scalar, \eqn{e^x - 1}.
 \description{
 Evaluates \eqn{e^x - 1} without the cancellation that \code{exp(x) - 1}
 suffers for \code{x} near zero. For \eqn{|x| \le 0.7} a 16th-order Taylor
-polynomial (in Horner form) is used; otherwise \code{exp(x) - 1} is accurate.
+polynomial (Mächler, 2012, Eq. 2), evaluated in Horner form, is used;
+otherwise \code{exp(x) - 1} is accurate. At \eqn{|x| = 0.7} the Lagrange
+remainder is at most \eqn{e^{0.7}\, 0.7^{17}/17! \approx 1.3 \times
+10^{-17}}, below double-precision machine epsilon
+(\eqn{2^{-52} \approx 2.2 \times 10^{-16}}).
 }
 \details{
 The NIMBLE DSL has no \code{expm1()}, hence this helper.
+}
+\references{
+Higham, N. J. (2002). \emph{Accuracy and Stability of Numerical Algorithms}
+(2nd ed.). SIAM. \doi{10.1137/1.9780898718027}
 }
 \keyword{internal}

@@ -58,6 +58,99 @@ test_that("NUTS-based samplers ask for nimbleHMC when it is missing", {
   )
 })
 
+# [REVISI-04] Test baru: opsi WAIC menyala di konfigurasi, dan opsi global
+# [REVISI-04] NIMBLE dikembalikan seperti semula setelahnya.
+test_that("enableWAIC is passed to the configuration and then restored", {
+  local_neonorm("msnburr")
+  model <- new_msnburr_model()
+  before <- nimble::nimbleOptions("MCMCenableWAIC")
+
+  conf <- configure_mcmc_neonorm(model, enableWAIC = TRUE)
+  expect_true(isTRUE(conf$enableWAIC))
+  expect_identical(nimble::nimbleOptions("MCMCenableWAIC"), before)
+
+  expect_error(configure_mcmc_neonorm(model, enableWAIC = NA), "enableWAIC")
+})
+
+
+# ---- prior_inits_neonorm ----------------------------------------------------
+
+# [REVISI-02] Test baru untuk nilai awal tersebar dari prior.
+test_that("prior_inits_neonorm() gives distinct, valid inits per chain", {
+  local_neonorm("msnburr")
+  model <- new_msnburr_model(y = c(-0.5, 0, 0.8))
+  before <- nimble::values(model, c("mu", "sigma", "alpha"))
+
+  inits <- prior_inits_neonorm(model, nchains = 3, seed = 42)
+
+  expect_length(inits, 3)
+  for (ini in inits) {
+    expect_setequal(names(ini), c("mu", "sigma", "alpha"))
+    expect_gt(ini$sigma, 0)
+    expect_gt(ini$alpha, 0)
+  }
+  expect_false(identical(inits[[1]], inits[[2]]))
+  # Reproducible with the same seed
+  expect_identical(inits, prior_inits_neonorm(model, nchains = 3, seed = 42))
+  # The model is left untouched
+  expect_equal(nimble::values(model, c("mu", "sigma", "alpha")), before)
+})
+
+test_that("prior_inits_neonorm() does not change the global RNG state", {
+  local_neonorm("msnburr")
+  model <- new_msnburr_model()
+  set.seed(1)
+  expected <- runif(1)
+  set.seed(1)
+  prior_inits_neonorm(model, nchains = 2, seed = 99)
+  expect_identical(runif(1), expected)
+})
+
+
+# ---- summarise_neonorm ------------------------------------------------------
+
+# [REVISI-03] Test baru untuk ringkasan posterior + diagnostik konvergensi.
+# [REVISI-03] Tidak butuh kompilasi, jadi cepat dan aman di CRAN.
+test_that("summarise_neonorm() accepts a matrix, a list and an mcmc.list", {
+  set.seed(1)
+  chains <- lapply(1:4, function(i) cbind(mu = rnorm(400), s = rexp(400)))
+  cols <- c("Mean", "SD", "2.5%", "50%", "97.5%",
+            "Rhat", "ESS_bulk", "ESS_tail")
+
+  from_list <- summarise_neonorm(chains)
+  expect_equal(colnames(from_list), cols)
+  expect_equal(rownames(from_list), c("mu", "s"))
+
+  from_coda <- summarise_neonorm(coda::mcmc.list(lapply(chains, coda::mcmc)))
+  expect_equal(from_coda, from_list)
+
+  from_matrix <- summarise_neonorm(chains[[1]], warn = FALSE)
+  expect_equal(from_matrix["mu", "Mean"], mean(chains[[1]][, "mu"]))
+})
+
+test_that("summarise_neonorm() reports well-mixed chains without warning", {
+  set.seed(2)
+  chains <- lapply(1:4, function(i) cbind(mu = rnorm(1000)))
+  expect_no_warning(tab <- summarise_neonorm(chains))
+  expect_lt(tab["mu", "Rhat"], 1.01)
+  expect_gt(tab["mu", "ESS_bulk"], 400)
+})
+
+test_that("summarise_neonorm() warns about chains that disagree", {
+  set.seed(3)
+  chains <- lapply(1:4, function(i) cbind(mu = rnorm(500, mean = i)))
+  expect_warning(summarise_neonorm(chains, ess_per_chain = 0), "R-hat")
+})
+
+test_that("summarise_neonorm() rejects malformed input", {
+  expect_error(summarise_neonorm(1:10), "matrix")
+  expect_error(
+    summarise_neonorm(list(cbind(a = 1:5), cbind(b = 1:5))),
+    "same named columns"
+  )
+  expect_error(summarise_neonorm(cbind(a = 1:5), probs = 2), "probs")
+})
+
 
 # ---- runmcmc_neonorm: argument checks (no compilation) ----------------------
 
@@ -70,29 +163,57 @@ test_that("runmcmc_neonorm() validates its arguments before compiling", {
   expect_error(runmcmc_neonorm(model, niter = 10, thin = 0), "thin")
   expect_error(runmcmc_neonorm(model, niter = 10, nchains = 1.5), "nchains")
   expect_error(runmcmc_neonorm(model, niter = 10, setSeed = "a"), "setSeed")
+  # [REVISI-04] Argumen baru juga divalidasi.
+  expect_error(runmcmc_neonorm(model, niter = 10, WAIC = "yes"), "WAIC")
+  expect_error(runmcmc_neonorm(model, niter = 10, summary = NA), "summary")
+})
+
+# [REVISI-02] Test baru: nilai awal tidak valid dihentikan dengan pesan jelas
+# [REVISI-02] sebelum kompilasi C++.
+test_that("runmcmc_neonorm() stops early on invalid starting values", {
+  local_neonorm("msnburr")
+  model <- new_msnburr_model()
+  model$sigma <- -1
+
+  expect_error(
+    runmcmc_neonorm(model, niter = 10, nchains = 1),
+    "log-probability"
+  )
 })
 
 
 # ---- runmcmc_neonorm: full runs (compile C++, so slow) ----------------------
 
-test_that("runmcmc_neonorm() returns draws, config and summary", {
+# [REVISI-06] Diperbarui: objek hasil kini berkelas neonorm_fit dengan elemen
+# [REVISI-06] tambahan; kolom summary kini memuat Rhat, ESS_bulk, ESS_tail.
+test_that("runmcmc_neonorm() returns a neonorm_fit with draws and summary", {
   skip_on_cran()
   local_neonorm("msnburr")
   model <- new_msnburr_model()
 
-  fit <- runmcmc_neonorm(
+  # Too few iterations for reliable diagnostics; only the structure is tested.
+  fit <- suppressWarnings(runmcmc_neonorm(
     model,
     niter = 30,
     nburnin = 10,
+    nchains = 1,
     sampler = "slice",
     setSeed = 123
-  )
+  ))
 
-  expect_named(fit, c("samples", "config", "summary"))
+  expect_s3_class(fit, "neonorm_fit")
+  expect_true(all(
+    c("samples", "summary", "config", "model", "compiled", "settings") %in%
+      names(fit)
+  ))
   expect_true(is.matrix(fit$samples))
   expect_equal(nrow(fit$samples), 20)
   expect_setequal(colnames(fit$samples), c("mu", "sigma", "alpha"))
-  expect_equal(colnames(fit$summary), c("Mean", "SD", "2.5%", "50%", "97.5%"))
+  expect_equal(
+    colnames(fit$summary),
+    c("Mean", "SD", "2.5%", "50%", "97.5%", "Rhat", "ESS_bulk", "ESS_tail")
+  )
+  expect_output(print(fit), "nimbleNeonorm MCMC fit")
 })
 
 test_that("runmcmc_neonorm() discards burn-in before thinning", {
@@ -105,9 +226,58 @@ test_that("runmcmc_neonorm() discards burn-in before thinning", {
     niter = 30,
     nburnin = 10,
     thin = 2,
+    nchains = 1,
     summary = FALSE
   )
 
   expect_equal(nrow(fit$samples), 10)
   expect_null(fit$summary)
+})
+
+# [REVISI-08] Test baru: NUTS benar-benar dikompilasi dan dijalankan. Ini
+# [REVISI-08] satu-satunya test yang menguji jalur automatic differentiation
+# [REVISI-08] (buildDerivs = TRUE) dari fungsi d, p, q dan helper numerik.
+test_that("NUTS compiles the derivatives and runs", {
+  skip_on_cran()
+  skip_if_not_installed("nimbleHMC")
+  local_neonorm("msnburr")
+  model <- new_msnburr_model(
+    y = c(-1.2, -0.3, 0.1, 0.4, 0.9, 1.6),
+    buildDerivs = TRUE
+  )
+
+  fit <- suppressWarnings(runmcmc_neonorm(
+    model,
+    niter = 100,
+    nchains = 1,
+    sampler = "NUTS",
+    summary = FALSE
+  ))
+
+  expect_equal(nrow(fit$samples), 50)
+  expect_true(all(is.finite(fit$samples)))
+  expect_true(all(fit$samples[, "sigma"] > 0))
+  expect_true(all(fit$samples[, "alpha"] > 0))
+})
+
+# [REVISI-02] [REVISI-04] Test baru: beberapa rantai dengan inits dari prior
+# [REVISI-02] (titik awal berbeda-beda) dan WAIC.
+test_that("several chains start from dispersed inits and give WAIC", {
+  skip_on_cran()
+  local_neonorm("msnburr")
+  model <- new_msnburr_model(y = c(-1.2, -0.3, 0.1, 0.4, 0.9, 1.6))
+
+  fit <- suppressWarnings(runmcmc_neonorm(
+    model,
+    niter = 200,
+    nchains = 2,
+    sampler = "slice",
+    WAIC = TRUE
+  ))
+
+  expect_s3_class(fit$samples, "mcmc.list")
+  expect_length(fit$samples, 2)
+  expect_length(fit$inits, 2)
+  expect_false(identical(fit$inits[[1]], fit$inits[[2]]))
+  expect_true(is.finite(fit$WAIC$WAIC))
 })
