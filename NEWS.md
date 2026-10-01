@@ -1,3 +1,13 @@
+# nimbleNeonorm (development version)
+
+## Documentation
+
+* Added real-data case studies in `analysis/stocks-case-study/`: the Bayesian
+  workflow applied to the daily returns of ADRO and PTBA (2010-2019). These
+  scripts are not part of the installed package.
+* `vignette("bayesian-workflow")` is now described as a simulated example, in
+  which the true parameter values are known.
+
 # nimbleNeonorm 0.2.0
 
 ## Breaking changes

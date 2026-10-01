@@ -1,0 +1,4 @@
+"","skewness","kurtosis","median","IQR"
+"normal",0.376,0,0.426,1
+"msnburr",0.618,0,0.22,1
+"msnburr2a",0.976,0,0.158,1

@@ -1,8 +1,8 @@
 ---
-title: "A Bayesian workflow with nimbleNeonorm"
+title: "Bayesian workflow with nimbleNeonorm: a simulated example"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{A Bayesian workflow with nimbleNeonorm}
+  %\VignetteIndexEntry{Bayesian workflow: a simulated example}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -18,6 +18,8 @@ knitr::opts_chunk$set(
   eval = identical(Sys.getenv("NOT_CRAN"), "true")
 )
 ```
+
+This vignette uses simulated data, where the true parameters are known. Real-data case studies are in analysis/
 
 This vignette fits a skewed location-scale model with the MSNBurr and
 MSNBurr-IIa distributions, following the steps of the Bayesian workflow of

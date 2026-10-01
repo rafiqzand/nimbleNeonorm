@@ -6,3 +6,5 @@
 .quarto
 /doc/
 /Meta/
+analysis/**/fits.rds
+analysis/**/results-*.rds

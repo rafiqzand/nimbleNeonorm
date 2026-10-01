@@ -1,8 +1,5 @@
 # nimbleNeonorm
 
-<!-- badges: start -->
-<!-- badges: end -->
-
 **nimbleNeonorm** makes the MSNBurr and MSNBurr-IIa neonormal distributions
 available in [NIMBLE](https://r-nimble.org) models, so that data with
 skewness can be modelled with Bayesian inference without writing custom
@@ -64,8 +61,15 @@ cleanup_neonorm()
 ```
 
 See `vignette("bayesian-workflow", package = "nimbleNeonorm")` for the full
-workflow: prior predictive check, parameter recovery, convergence
-diagnostics, posterior predictive check and model comparison.
+workflow on simulated data: prior predictive check, parameter recovery,
+convergence diagnostics, posterior predictive check and model comparison.
+
+## Case studies
+
+Real-data case studies that apply the Bayesian workflow with nimbleNeonorm
+(daily stock returns of ADRO and PTBA, 2010-2019) are in
+[`analysis/stocks-case-study/`](analysis/stocks-case-study/). They are
+analysis scripts and are not part of the installed package.
 
 ## Citation
 
