@@ -8,3 +8,4 @@
 /Meta/
 analysis/**/fits.rds
 analysis/**/results-*.rds
+analysis/simulation-logs/ 

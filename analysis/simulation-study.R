@@ -11,6 +11,13 @@
 # every data set, so only the first fit of each combination pays for C++
 # compilation.
 #
+# Design (revised after the thesis defence): a single large sample size,
+# n = 10000, so that 2 families x 3 shapes = 6 scenarios. Each replication is
+# saved to CHECKPOINT_DIR as soon as it finishes, so an interrupted run (for
+# example a Google Colab session that disconnects) resumes where it stopped
+# when the script is run again. Set PILOT <- TRUE first to time one
+# replication per scenario before starting the full run.
+#
 # References
 #   Cook, S. R., Gelman, A., & Rubin, D. B. (2006). Validation of software
 #     for Bayesian models using posterior quantiles. Journal of
@@ -28,16 +35,35 @@ register_neonorm(verbose = FALSE)
 
 # ---- Settings ---------------------------------------------------------------
 
-N_REP <- 50                       # data sets per scenario
+N_REP <- 50                       # data sets per scenario; 100 lowers the
+# Monte Carlo SE of a 0.95 coverage from
+# about 0.031 to about 0.022
 FAMILIES <- c("msnburr", "msnburr2a")
-SAMPLE_SIZES <- c(50, 200)
+SAMPLE_SIZES <- 10000
 ALPHAS <- c(0.5, 1, 3)
 TRUE_MU <- 0
 TRUE_SIGMA <- 1
-N_ITER <- 4000
-N_BURNIN <- 2000
-N_CHAINS <- 4
+N_ITER <- 4000                    # with n = 10000 the posterior is narrow and
+N_BURNIN <- 2000                   # the chains settle quickly; R-hat and ESS
+N_CHAINS <- 4                     # are still checked for every replication
 OUT_DIR <- "analysis"
+CHECKPOINT_DIR <- file.path(OUT_DIR, "simulation-checkpoints-4000")
+PILOT <- FALSE                    # TRUE: one replication per scenario, timed
+SCENARIOS_TO_RUN <- NULL          # e.g. 1:3 to split the work across machines
+STOP_AT <- NA                     # e.g. "2026-10-11 15:15": no new replication
+# starts after this time
+
+# Command-line use (one process per scenario, see run-simulation-parallel.R):
+#   Rscript analysis/simulation-study.R <scenario> [stop_at]
+#   Rscript analysis/simulation-study.R summary
+args <- commandArgs(trailingOnly = TRUE)
+SUMMARY_ONLY <- length(args) > 0 && args[1] == "summary"
+if (length(args) > 0 && !SUMMARY_ONLY) SCENARIOS_TO_RUN <- as.integer(args[1])
+if (length(args) > 1) STOP_AT <- args[2]
+if (SUMMARY_ONLY) SCENARIOS_TO_RUN <- integer(0)
+stop_time <- if (is.na(STOP_AT)) Inf else as.POSIXct(STOP_AT)
+
+dir.create(CHECKPOINT_DIR, showWarnings = FALSE, recursive = TRUE)
 
 # ---- Models -----------------------------------------------------------------
 
@@ -65,6 +91,11 @@ scenario_id <- 0
 
 for (family in FAMILIES) {
   for (n in SAMPLE_SIZES) {
+    ids_here <- scenario_id + seq_along(ALPHAS)
+    if (!is.null(SCENARIOS_TO_RUN) && !any(ids_here %in% SCENARIOS_TO_RUN)) {
+      scenario_id <- scenario_id + length(ALPHAS)
+      next
+    }
     model <- nimbleModel(
       model_code[[family]],
       constants = list(N = n),
@@ -78,12 +109,27 @@ for (family in FAMILIES) {
 
     for (alpha in ALPHAS) {
       scenario_id <- scenario_id + 1
+      if (!is.null(SCENARIOS_TO_RUN) && !scenario_id %in% SCENARIOS_TO_RUN) {
+        next
+      }
       message(sprintf("Scenario %d: %s, n = %d, alpha = %g",
                       scenario_id, family, n, alpha))
       truth <- c(mu = TRUE_MU, sigma = TRUE_SIGMA, alpha = alpha)
 
-      for (rep in seq_len(N_REP)) {
+      for (rep in seq_len(if (PILOT) 1 else N_REP)) {
+        ckpt <- file.path(CHECKPOINT_DIR, sprintf(
+          "s%02d-%s-n%d-a%g-r%03d.rds", scenario_id, family, n, alpha, rep))
+        if (!PILOT && file.exists(ckpt)) {
+          results[[length(results) + 1]] <- readRDS(ckpt)
+          next
+        }
+        if (Sys.time() > stop_time) {
+          message("  STOP_AT reached; stopping before rep ", rep)
+          break
+        }
+        t_start <- Sys.time()
         seed <- scenario_id * 100000 + rep
+
         set.seed(seed)
         y <- replicate(
           n, simulators[[family]](1, TRUE_MU, TRUE_SIGMA, alpha)
@@ -106,7 +152,7 @@ for (family in FAMILIES) {
         )
         tab <- summarise_neonorm(samples, warn = FALSE)
 
-        results[[length(results) + 1]] <- data.frame(
+        res <- data.frame(
           family = family,
           n = n,
           alpha_true = alpha,
@@ -121,12 +167,36 @@ for (family in FAMILIES) {
           ess_tail = tab[names(truth), "ESS_tail"],
           row.names = NULL
         )
+        secs <- as.numeric(Sys.time() - t_start, units = "secs")
+        message(sprintf("  rep %d done in %.0f s", rep, secs))
+        if (PILOT) {
+          message(sprintf("  estimated time for this scenario: %.1f hours",
+                          secs * N_REP / 3600))
+        } else {
+          saveRDS(res, ckpt)
+        }
+        results[[length(results) + 1]] <- res
       }
     }
   }
 }
 
-draws <- do.call(rbind, results)
+if (PILOT) {
+  message("Pilot finished; set PILOT <- FALSE for the full run.")
+  stop("Pilot run: no performance summary written.", call. = FALSE)
+}
+if (length(args) > 0 && !SUMMARY_ONLY) {
+  message("Scenario ", SCENARIOS_TO_RUN, " finished; run with 'summary' ",
+          "after all scenarios are done.")
+  quit(save = "no")
+}
+
+# Collect every finished replication (including those from earlier sessions
+# or from other machines that wrote to the same checkpoint folder).
+draws <- do.call(rbind, lapply(
+  list.files(CHECKPOINT_DIR, pattern = "[.]rds$", full.names = TRUE),
+  readRDS
+))
 
 # ---- Performance measures (Morris et al., 2019) ------------------------------
 
