@@ -25,7 +25,7 @@ remainder is at most \eqn{e^{0.7}\, 0.7^{17}/17! \approx 1.3 \times
 The NIMBLE DSL has no \code{expm1()}, hence this helper.
 }
 \references{
-Higham, N. J. (2002). \emph{Accuracy and Stability of Numerical Algorithms}
-(2nd ed.). SIAM. \doi{10.1137/1.9780898718027}
+Mächler, M. (2012). \emph{Accurately computing} \eqn{\log(1 - \exp(-|a|))}.
+Vignette of the \pkg{Rmpfr} package.
 }
 \keyword{internal}

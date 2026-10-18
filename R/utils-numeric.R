@@ -82,8 +82,8 @@ log1pexp_nimble <- nimble::nimbleFunction(
 #' @return Numeric scalar, \eqn{e^x - 1}.
 #'
 #' @references
-#' Higham, N. J. (2002). *Accuracy and Stability of Numerical Algorithms*
-#' (2nd ed.). SIAM. \doi{10.1137/1.9780898718027}
+#' Mächler, M. (2012). *Accurately computing* \eqn{\log(1 - \exp(-|a|))}.
+#' Vignette of the \pkg{Rmpfr} package.
 #'
 #' @keywords internal
 #' @export
